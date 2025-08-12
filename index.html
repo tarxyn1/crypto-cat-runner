@@ -34,7 +34,7 @@
   /* Верхняя панель кнопок */
   .controls{
     position:fixed; right:12px; top:calc(12px + var(--safe-top));
-    display:flex; gap:8px; flex-direction:column;
+    display:flex; gap:8px; flex-direction:column; max-height:60vh; overflow-y:auto;
   }
   .btn{
     border:1px solid #1e2747; background:#162041; color:#e7f3ff;
@@ -44,6 +44,40 @@
   .btn:active{ transform:translateY(1px); opacity:.9; }
   .btn.secondary{ background:#0f1730; }
   .btn.warn{ background:#2a1030; border-color:#432a59; }
+  
+  /* Модальное окно миссий */
+  .mission-modal{
+    position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000;
+    display:none; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .mission-grid{
+    background:#0f1730; border:1px solid #1e2747; border-radius:16px;
+    padding:20px; max-width:400px; width:100%;
+    max-height:80vh; overflow-y:auto;
+  }
+  .mission-title{
+    color:#e7f3ff; font-size:18px; font-weight:700; text-align:center;
+    margin-bottom:20px;
+  }
+  .mission-list{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+    gap:12px;
+  }
+  .mission-item{
+    background:#162041; border:2px solid #1e2747; border-radius:12px;
+    padding:12px; text-align:center; cursor:pointer;
+    transition:all 0.2s; user-select:none;
+  }
+  .mission-item:hover{ border-color:#5cc8ff; background:#1a2a5a; }
+  .mission-item.active{ border-color:#5cc8ff; background:#1a2a5a; }
+  .mission-item .icon{ font-size:24px; margin-bottom:8px; }
+  .mission-item .name{ color:#e7f3ff; font-size:14px; font-weight:600; margin-bottom:4px; }
+  .mission-item .desc{ color:#8ba3c7; font-size:12px; }
+  .mission-close{
+    position:absolute; top:10px; right:10px; color:#e7f3ff;
+    font-size:24px; cursor:pointer; padding:10px;
+  }
 </style>
 </head>
 <body>
@@ -55,6 +89,18 @@
   <div class="btn" id="btnRestart">⟲ Рестарт</div>
   <div class="btn secondary" id="btnPause">⏸ Пауза</div>
   <div class="btn warn" id="btnColor">🎨 Цвет кота</div>
+  <div class="btn" id="btnMission">🎯 Миссии</div>
+</div>
+
+<!-- Модальное окно выбора миссий -->
+<div class="mission-modal" id="missionModal">
+  <div class="mission-grid">
+    <div class="mission-close" id="missionClose">×</div>
+    <div class="mission-title">Выберите миссию</div>
+    <div class="mission-list" id="missionList">
+      <!-- Миссии будут добавлены через JavaScript -->
+    </div>
+  </div>
 </div>
 
 <script>
@@ -82,16 +128,85 @@ function bindMainButton(getCoins, getAlive){
   let S = 1; // scale
   let GROUND_Y = 420;
   let GRAVITY = 1.4, JUMP_VELOCITY = -20;
-  let START_SPEED = 6, SPEEDUP = 0.0009;
-  const SPAWN_COOLDOWN = { coin: 1000, enemy: 1400 };
+  let START_SPEED = 2, SPEEDUP = 0.0001;
+  const SPAWN_COOLDOWN = { coin: 2000, enemy: 3000 };
+  
+  // Функция получения текущих настроек спавна
+  function getCurrentSpawnCooldown() {
+    const mission = MISSIONS[currentMission];
+    if (mission.type === "survive") {
+      return { coin: 3000, enemy: 999999 }; // В миссии выживания враги не появляются дополнительно
+    }
+    return SPAWN_COOLDOWN;
+  }
   const WORLD = { speed: START_SPEED, t: 0 };
+  
+  // Миссии и прогресс
+  const MISSION_TIME = 120000; // 2 минуты
+  let missionProgress = 0;
+  let missionStartTime = 0;
+  let currentMission = 0;
+  
+  const MISSIONS = [
+    {
+      id: 0,
+      name: "Время идёт",
+      description: "Продержись 2 минуты",
+      type: "time",
+      target: 120000,
+      progress: 0,
+      icon: "⏱️"
+    },
+    {
+      id: 1,
+      name: "Собери USDT",
+      description: "Собери 5 USDT токенов",
+      type: "collect",
+      target: 5,
+      targetCoin: "USDT",
+      progress: 0,
+      icon: "💎"
+    },
+    {
+      id: 2,
+      name: "Избеги врагов",
+      description: "Продержись 2 минуты без столкновений",
+      type: "survive",
+      target: 120000,
+      progress: 0,
+      icon: "🛡️"
+    },
+    {
+      id: 3,
+      name: "Только прыжки",
+      description: "Собери 8 монет, не стой на земле дольше 2с",
+      type: "jump",
+      target: 8,
+      progress: 0,
+      icon: "🦘"
+    },
+    {
+      id: 4,
+      name: "Гонка за бонусом",
+      description: "Догони золотую монету за 90 секунд",
+      type: "chase",
+      target: 90000,
+      progress: 0,
+      icon: "🏃"
+    }
+  ];
 
   const coinsEl = document.getElementById('coins');
   const btnRestart = document.getElementById('btnRestart');
   const btnPause   = document.getElementById('btnPause');
   const btnColor   = document.getElementById('btnColor');
+  const btnMission = document.getElementById('btnMission');
+  const missionModal = document.getElementById('missionModal');
+  const missionList = document.getElementById('missionList');
+  const missionClose = document.getElementById('missionClose');
 
-  let coins = 0, alive = true, paused = false;
+  let coins = 0, alive = true, paused = false, missionActive = false;
+  let groundTime = 0; // Время на земле для миссии прыжков
 
   // Кот Pico Park
   let CELL = 6;
@@ -110,8 +225,8 @@ function bindMainButton(getCoins, getAlive){
   const CAT_COLORS = ['#f4a261','#5bb6ff','#ff9bb0','#ffd166','#8fff8b','#bba0ff'];
   let catColorIndex = 0;
 
-  const player = { kind:'player', x:80, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true };
-  const objects = { coins: [], enemies: [], particles: [] };
+  const player = { kind:'player', x:80, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true, vx:0 };
+  const objects = { coins: [], enemies: [], particles: [], platforms: [], bonus: null };
   let lastSpawn = { coin: 0, enemy: 0 };
 
   // === helpers
@@ -149,10 +264,24 @@ function bindMainButton(getCoins, getAlive){
 
   function reset(){
     coins=0; coinsEl.textContent=coins; updateMainButton(coins,true);
-    alive=true; paused=false;
+    alive=true; paused=false; missionActive=true;
     WORLD.speed=START_SPEED; WORLD.t=0;
-    objects.coins.length=0; objects.enemies.length=0; objects.particles.length=0;
-    Object.assign(player,{ x:Math.round(80*S), y:GROUND_Y, vy:0, onGround:true });
+    missionProgress=0; missionStartTime=Date.now();
+    groundTime=0;
+    objects.coins.length=0; objects.enemies.length=0; objects.particles.length=0; objects.platforms.length=0;
+    Object.assign(player,{ x:Math.round(80*S), y:GROUND_Y, vy:0, onGround:true, vx:0 });
+    
+    // Сброс прогресса миссии
+    MISSIONS[currentMission].progress = 0;
+    
+    // Создаем начальное расположение врагов для миссии выживания
+    spawnInitialEnemies();
+    
+    // Создаем платформы для миссии прыжков
+    spawnJumpPlatforms();
+    
+    // Создаем убегающий бонус для миссии гонки
+    spawnChaseBonus();
   }
 
   // === background
@@ -177,6 +306,44 @@ function bindMainButton(getCoins, getAlive){
       ctx.lineTo(canvas.width/DPR, y);
       ctx.stroke();
     }
+    
+    // Промо-билборды на заднем плане
+    drawPromoBillboards();
+  }
+  
+  // Промо-билборды
+  function drawPromoBillboards(){
+    const billboards = [
+      { x: 400, text: "🔥 НОВЫЕ КРИПТО", subtext: "Инвестируй умно" },
+      { x: 800, text: "💎 TON COIN", subtext: "Будущее блокчейна" },
+      { x: 1200, text: "🚀 ДЕФИ ПРОТОКОЛЫ", subtext: "Высокие APY" },
+      { x: 1600, text: "📱 TELEGRAM WALLET", subtext: "Безопасно и быстро" }
+    ];
+    
+    billboards.forEach(billboard => {
+      const screenX = billboard.x - WORLD.t * WORLD.speed * 0.1;
+      if (screenX > -200 && screenX < canvas.width/DPR + 200) {
+        // Фон билборда
+        ctx.fillStyle = 'rgba(15, 23, 48, 0.8)';
+        ctx.fillRect(screenX, GROUND_Y - 120*S, 180*S, 80*S);
+        
+        // Рамка
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(screenX, GROUND_Y - 120*S, 180*S, 80*S);
+        
+        // Текст
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.round(14*S)}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.fillText(billboard.text, screenX + 90*S, GROUND_Y - 95*S);
+        
+        ctx.fillStyle = '#5cc8ff';
+        ctx.font = `${Math.round(12*S)}px system-ui`;
+        ctx.fillText(billboard.subtext, screenX + 90*S, GROUND_Y - 75*S);
+        ctx.textAlign = 'left';
+      }
+    });
   }
 
   // === draw cat
@@ -199,18 +366,179 @@ function bindMainButton(getCoins, getAlive){
   // === enemies
   function spawnEnemy(){
     const w=Math.round(44*S), h=Math.round(32*S);
-    // Увеличиваем дистанцию появления врагов для лучшей видимости
-    objects.enemies.push({ kind:'enemy', x:canvas.width/DPR+rand(200*S,300*S), y:GROUND_Y, w,h });
+    const mission = MISSIONS[currentMission];
+    
+    if (mission.type === "survive") {
+      // В миссии выживания враги появляются в случайных местах и преследуют игрока
+      const spawnX = rand(50*S, canvas.width/DPR - 50*S);
+      const spawnY = GROUND_Y - rand(50*S, 150*S);
+      objects.enemies.push({ 
+        kind:'enemy', 
+        x: spawnX, 
+        y: spawnY, 
+        w, h,
+        vx: 0,
+        vy: 0,
+        targetX: player.x,
+        targetY: player.y,
+        speed: rand(0.5*S, 1.5*S)
+      });
+    } else {
+      // Обычные враги появляются справа
+      objects.enemies.push({ kind:'enemy', x:canvas.width/DPR+rand(200*S,300*S), y:GROUND_Y, w,h });
+    }
+  }
+  
+  // Функция для создания начального расположения врагов в миссии выживания
+  function spawnInitialEnemies() {
+    const mission = MISSIONS[currentMission];
+    if (mission.type === "survive") {
+      // Очищаем существующих врагов
+      objects.enemies.length = 0;
+      
+      // Создаем только 3 врага, разбросанных по локации
+      const enemyCount = 3;
+      for (let i = 0; i < enemyCount; i++) {
+        const w = Math.round(44*S), h = Math.round(32*S);
+        
+        // Безопасная зона вокруг кота (150 пикселей)
+        const safeZone = 150*S;
+        let spawnX, spawnY;
+        let attempts = 0;
+        
+        do {
+          spawnX = rand(50*S, canvas.width/DPR - 50*S);
+          spawnY = GROUND_Y - rand(50*S, 200*S);
+          attempts++;
+          
+          // Проверяем расстояние до кота
+          const distanceToCat = Math.sqrt(
+            Math.pow(spawnX - player.x, 2) + 
+            Math.pow(spawnY - player.y, 2)
+          );
+          
+          // Если враг слишком близко к коту, пробуем снова
+          if (distanceToCat < safeZone) {
+            continue;
+          }
+          
+          // Проверяем расстояние до других врагов
+          let tooClose = false;
+          for (let j = 0; j < objects.enemies.length; j++) {
+            const existingEnemy = objects.enemies[j];
+            const distanceToEnemy = Math.sqrt(
+              Math.pow(spawnX - existingEnemy.x, 2) + 
+              Math.pow(spawnY - existingEnemy.y, 2)
+            );
+            if (distanceToEnemy < 120*S) {
+              tooClose = true;
+              break;
+            }
+          }
+          
+          if (!tooClose) break;
+          
+        } while (attempts < 50); // Максимум 50 попыток
+        
+        objects.enemies.push({ 
+          kind:'enemy', 
+          x: spawnX, 
+          y: spawnY, 
+          w, h,
+          vx: 0,
+          vy: 0,
+          targetX: player.x,
+          targetY: player.y,
+          speed: rand(0.8*S, 1.2*S),
+          active: false, // Враг неактивен изначально
+          activationDistance: 100*S // Дистанция активации
+        });
+      }
+    }
+  }
+  
+  // Функция для создания платформ в миссии прыжков
+  function spawnJumpPlatforms() {
+    const mission = MISSIONS[currentMission];
+    if (mission.type === "jump") {
+      // Очищаем существующие платформы
+      objects.platforms.length = 0;
+      
+      // Создаем 6-8 платформ разной высоты
+      const platformCount = Math.floor(rand(6, 8));
+      for (let i = 0; i < platformCount; i++) {
+        const platformW = Math.round(rand(60*S, 120*S));
+        const platformH = Math.round(12*S);
+        
+        let spawnX, spawnY;
+        let attempts = 0;
+        
+        do {
+          spawnX = rand(50*S, canvas.width/DPR - platformW - 50*S);
+          spawnY = GROUND_Y - rand(80*S, 300*S);
+          attempts++;
+          
+          // Проверяем расстояние до других платформ
+          let tooClose = false;
+          for (let j = 0; j < objects.platforms.length; j++) {
+            const existingPlatform = objects.platforms[j];
+            const distanceX = Math.abs(spawnX - existingPlatform.x);
+            const distanceY = Math.abs(spawnY - existingPlatform.y);
+            
+            if (distanceX < 100*S && distanceY < 80*S) {
+              tooClose = true;
+              break;
+            }
+          }
+          
+          if (!tooClose) break;
+          
+        } while (attempts < 30);
+        
+        objects.platforms.push({
+          kind: 'platform',
+          x: spawnX,
+          y: spawnY,
+          w: platformW,
+          h: platformH
+        });
+      }
+    }
+  }
+  
+  // Функция для создания убегающего бонуса
+  function spawnChaseBonus() {
+    const mission = MISSIONS[currentMission];
+    if (mission.type === "chase") {
+      // Создаем золотую монету, которая убегает
+      objects.bonus = {
+        kind: 'bonus',
+        x: canvas.width/DPR + 200*S,
+        y: GROUND_Y - rand(50*S, 150*S),
+        w: Math.round(32*S),
+        h: Math.round(32*S),
+        speed: WORLD.speed * 1.2, // Движется быстрее игрока
+        spin: rand(0, 1000),
+        shimmer: rand(0, 1000),
+        caught: false
+      };
+    }
   }
   function drawEnemy(e){
     const top = e.y - e.h;
+    const mission = MISSIONS[currentMission];
     
     // Добавляем тень для лучшей видимости
     ctx.fillStyle='rgba(255,0,0,0.3)'; 
     ctx.fillRect(e.x-2, top-2, e.w+4, e.h+4);
     
     // Основной блок врага
-    ctx.fillStyle='#ff6666'; 
+    if (mission.type === "survive" && !e.active) {
+      // Неактивные враги выглядят тусклее
+      ctx.fillStyle='#666666'; 
+    } else {
+      ctx.fillStyle='#ff6666'; 
+    }
     ctx.fillRect(e.x, top, e.w, e.h);
     
     // Добавляем блик для объёма
@@ -221,8 +549,21 @@ function bindMainButton(getCoins, getAlive){
     ctx.fillStyle='#3a0f0f'; 
     ctx.fillRect(e.x+e.w/2-3, top+Math.round(8*S), 6, 6);
     
-    // Добавляем красное свечение для предупреждения
-    if (e.x < canvas.width/DPR + 100*S) {
+    // Добавляем свечение
+    if (mission.type === "survive") {
+      if (e.active) {
+        // Активные враги - красное свечение
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle='#ff0000'; 
+        ctx.fillRect(e.x-8, top-8, e.w+16, e.h+16);
+      } else {
+        // Неактивные враги - серое свечение
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle='#666666'; 
+        ctx.fillRect(e.x-8, top-8, e.w+16, e.h+16);
+      }
+      ctx.globalAlpha = 1;
+    } else if (e.x < canvas.width/DPR + 100*S) {
       ctx.globalAlpha = 0.4 * (1 - (e.x - canvas.width/DPR) / (100*S));
       ctx.fillStyle='#ff0000'; 
       ctx.fillRect(e.x-10, top-10, e.w+20, e.h+20);
@@ -234,8 +575,26 @@ function bindMainButton(getCoins, getAlive){
   const COIN_SKINS = ['USDT','BTC','TON'];
   function spawnCoin(){
     const r=Math.round(16*S), top=GROUND_Y - Math.round(80*S) - Math.random()*Math.round(110*S);
-    const skin=COIN_SKINS[Math.floor(Math.random()*COIN_SKINS.length)];
-    objects.coins.push({ kind:'coin', x:canvas.width/DPR+rand(0,120*S), y:top, w:r*2, h:r*2, r,
+    const mission = MISSIONS[currentMission];
+    
+    // Для миссии сбора токенов - больше шанс появления нужного токена
+    let skin;
+    if (mission.type === "collect" && Math.random() < 0.7) {
+      skin = mission.targetCoin;
+    } else {
+      skin = COIN_SKINS[Math.floor(Math.random()*COIN_SKINS.length)];
+    }
+    
+    let spawnX;
+    if (mission.type === "survive") {
+      // В миссии выживания монеты появляются в случайных местах на экране
+      spawnX = rand(50*S, canvas.width/DPR - 50*S);
+    } else {
+      // В обычных миссиях монеты появляются справа
+      spawnX = canvas.width/DPR + rand(0, 120*S);
+    }
+    
+    objects.coins.push({ kind:'coin', x:spawnX, y:top, w:r*2, h:r*2, r,
       skin, spin:rand(0,1000), shimmer:rand(0,1000) });
   }
   function coinPalette(s){
@@ -274,8 +633,63 @@ function bindMainButton(getCoins, getAlive){
     ctx.fillStyle=grd; ctx.fillRect(-r,-r,r*2,r*2); ctx.restore();
     ctx.fillStyle=pal.logo; ctx.strokeStyle=pal.logo; drawCoinLogo(skin);
     ctx.restore();
+    }
+  
+  // === platforms
+  function drawPlatform(p) {
+    // Фон платформы
+    ctx.fillStyle = '#2a4a7a';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    
+    // Рамка платформы
+    ctx.strokeStyle = '#4a6a9a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(p.x, p.y, p.w, p.h);
+    
+    // Блики на платформе
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fillRect(p.x + 2, p.y + 2, p.w - 4, 3);
   }
-
+  
+  // === bonus
+  function drawBonus(b) {
+    if (b.caught) return;
+    
+    const x = b.x, y = b.y, r = b.w/2;
+    
+    ctx.save();
+    ctx.translate(x + r, y + r);
+    ctx.rotate(((WORLD.t + b.spin) * 0.01) % (Math.PI * 2));
+    
+    // Золотой градиент
+    const g = ctx.createRadialGradient(0, 0, r*0.25, 0, 0, r);
+    g.addColorStop(0, '#ffd700');
+    g.addColorStop(1, '#ff8c00');
+    
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Блики
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, r-1.5, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Анимация мерцания
+    ctx.globalAlpha = 0.6 + 0.4 * ((Math.sin((WORLD.t + b.shimmer) * 0.01) + 1) / 2);
+    const grd = ctx.createLinearGradient(-r, -r, r, r);
+    grd.addColorStop(0, 'rgba(255,255,255,0)');
+    grd.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(-r, -r, r*2, r*2);
+    
+    ctx.restore();
+  }
+  
   // === particles (лаконично)
   function spawnBurst(x,y,color,count=8){
     for(let i=0;i<count;i++)
@@ -293,7 +707,32 @@ function bindMainButton(getCoins, getAlive){
 
   // === input
   const jump = ()=>{ if(alive && player.onGround){ player.vy=JUMP_VELOCITY; player.onGround=false; } };
-  canvas.addEventListener('pointerdown', jump, { passive:true });
+  
+        // Обработка тапов для движения влево/вправо в миссии выживания и прыжков
+      canvas.addEventListener('pointerdown', (e) => {
+        if (!alive) return;
+        
+        const mission = MISSIONS[currentMission];
+        if (mission.type === "survive" || mission.type === "jump" || mission.type === "chase") {
+          // Определяем сторону тапа
+          const tapX = e.clientX;
+          const screenCenter = window.innerWidth / 2;
+          
+          if (tapX < screenCenter) {
+            // Тап слева - движение влево
+            player.vx = -3 * S;
+          } else {
+            // Тап справа - движение вправо
+            player.vx = 3 * S;
+          }
+          
+          // Сбрасываем горизонтальную скорость через короткое время
+          setTimeout(() => { player.vx = 0; }, 200);
+        } else {
+          // Обычный прыжок для других миссий
+          jump();
+        }
+      }, { passive:true });
   document.addEventListener('keydown', e=>{
     if(e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); jump(); }
     if(e.code==='KeyR') reset();
@@ -302,9 +741,41 @@ function bindMainButton(getCoins, getAlive){
   });
 
   // === bottom buttons
+  // Функция отображения миссий
+  function showMissionModal() {
+    missionList.innerHTML = '';
+    MISSIONS.forEach((mission, index) => {
+      const item = document.createElement('div');
+      item.className = `mission-item ${index === currentMission ? 'active' : ''}`;
+      item.innerHTML = `
+        <div class="icon">${mission.icon}</div>
+        <div class="name">${mission.name}</div>
+        <div class="desc">${mission.description}</div>
+      `;
+      item.onclick = () => {
+        currentMission = index;
+        reset();
+        hideMissionModal();
+      };
+      missionList.appendChild(item);
+    });
+    missionModal.style.display = 'flex';
+  }
+  
+  function hideMissionModal() {
+    missionModal.style.display = 'none';
+  }
+  
   btnRestart.onclick = ()=>{ reset(); };
   btnPause.onclick   = ()=>{ paused=!paused; btnPause.textContent = paused ? '▶ Продолжить' : '⏸ Пауза'; };
   btnColor.onclick   = ()=>{ catColorIndex=(catColorIndex+1)%CAT_COLORS.length; };
+  btnMission.onclick = showMissionModal;
+  missionClose.onclick = hideMissionModal;
+  
+  // Закрытие по клику вне модального окна
+  missionModal.onclick = (e) => {
+    if (e.target === missionModal) hideMissionModal();
+  };
 
   // === loop
   let last = performance.now();
@@ -312,32 +783,177 @@ function bindMainButton(getCoins, getAlive){
     const dt = now - last; last = now;
 
     if(!paused && alive){
-      WORLD.t += dt;
-      WORLD.speed += SPEEDUP * dt;
+      const mission = MISSIONS[currentMission];
+      
+      if (mission.type === "survive") {
+        // В миссии выживания время идет, но мир не движется
+        WORLD.t += dt;
+        // Скорость мира остается постоянной для анимации фона
+        WORLD.speed = START_SPEED;
+      } else {
+        // Обычные миссии - мир движется
+        WORLD.t += dt;
+        WORLD.speed += SPEEDUP * dt;
+      }
 
-      if(now - lastSpawn.coin  > SPAWN_COOLDOWN.coin)  { spawnCoin();  lastSpawn.coin=now; }
-      if(now - lastSpawn.enemy > SPAWN_COOLDOWN.enemy) { spawnEnemy(); lastSpawn.enemy=now; }
+      const currentCooldown = getCurrentSpawnCooldown();
+      if(now - lastSpawn.coin  > currentCooldown.coin)  { spawnCoin();  lastSpawn.coin=now; }
+      
+      // В миссии выживания враги не появляются дополнительно
+      if(mission.type !== "survive" && now - lastSpawn.enemy > currentCooldown.enemy) { 
+        spawnEnemy(); 
+        lastSpawn.enemy=now; 
+      }
 
       player.vy += GRAVITY; player.y += player.vy;
-      if(player.y >= GROUND_Y){ player.y=GROUND_Y; player.vy=0; player.onGround=true; }
+      
+      // Проверка коллизий с платформами
+      if (mission.type === "jump") {
+        player.onGround = false;
+        for (let i = 0; i < objects.platforms.length; i++) {
+          const platform = objects.platforms[i];
+          if (player.x < platform.x + platform.w && 
+              player.x + player.w > platform.x &&
+              player.y + player.h >= platform.y &&
+              player.y + player.h <= platform.y + platform.h + 5) {
+            player.y = platform.y - player.h;
+            player.vy = 0;
+            player.onGround = true;
+            break;
+          }
+        }
+        
+        // Проверка земли
+        if (player.y >= GROUND_Y) {
+          player.y = GROUND_Y;
+          player.vy = 0;
+          player.onGround = true;
+        }
+      } else {
+        // Обычная проверка земли для других миссий
+        if(player.y >= GROUND_Y){ player.y=GROUND_Y; player.vy=0; player.onGround=true; }
+      }
+      
+      // Горизонтальное движение игрока
+      player.x += player.vx;
+      
+      // Ограничения движения игрока
+      const minX = 20*S;
+      const maxX = canvas.width/DPR - player.w - 20*S;
+      if (player.x < minX) player.x = minX;
+      if (player.x > maxX) player.x = maxX;
+      
+      // Обработка убегающего бонуса
+      if (mission.type === "chase" && objects.bonus && !objects.bonus.caught) {
+        // Бонус движется влево быстрее игрока
+        objects.bonus.x -= objects.bonus.speed;
+        
+        // Проверка столкновения с бонусом
+        if (aabb(objects.bonus, player)) {
+          objects.bonus.caught = true;
+          mission.progress = 1; // Миссия выполнена
+          spawnBurst(objects.bonus.x + objects.bonus.w/2, objects.bonus.y + objects.bonus.h/2, '#ffd700', 20);
+        }
+        
+        // Если бонус ушел за левый край экрана - миссия провалена
+        if (objects.bonus.x + objects.bonus.w < -50*S) {
+          alive = false;
+          missionActive = false;
+          updateMainButton(coins, alive);
+        }
+      }
+      
+      // Отслеживание времени на земле для миссии прыжков
+      if (mission.type === "jump") {
+        if (player.onGround) {
+          groundTime += dt;
+          if (groundTime > 2000) { // 2 секунды
+            alive = false;
+            missionActive = false;
+            updateMainButton(coins, alive);
+            // Добавляем эффект при провале миссии
+            spawnBurst(player.x + player.w/2, player.y - player.h/2, '#ff6666', 15);
+          }
+        } else {
+          groundTime = 0;
+        }
+      }
 
       for(let i=objects.coins.length-1;i>=0;i--){
-        const c=objects.coins[i]; c.x -= WORLD.speed;
+        const c=objects.coins[i];
+        
+        if (mission.type === "survive") {
+          // В миссии выживания монеты не движутся
+          // Они остаются на месте для сбора
+        } else {
+          // В обычных миссиях монеты движутся влево
+          c.x -= WORLD.speed;
+        }
+        
         if(aabb(c,player)){
           coins++; coinsEl.textContent=coins; updateMainButton(coins, alive);
+          
+          // Обновляем прогресс миссии сбора токенов
+          if (MISSIONS[currentMission].type === "collect" && c.skin === MISSIONS[currentMission].targetCoin) {
+            MISSIONS[currentMission].progress++;
+          }
+          
+          // Обновляем прогресс миссии прыжков
+          if (MISSIONS[currentMission].type === "jump") {
+            MISSIONS[currentMission].progress++;
+          }
+          
           spawnBurst(c.x+c.r, c.y+c.r, 'rgba(255,255,255,.9)', 10);
           objects.coins.splice(i,1);
-        } else if(c.x + c.w < -10) objects.coins.splice(i,1);
+        } else if(c.x + c.w < -10 && mission.type !== "survive" && mission.type !== "chase") objects.coins.splice(i,1);
       }
       for(let i=objects.enemies.length-1;i>=0;i--){
-        const e=objects.enemies[i]; e.x -= WORLD.speed*1.05;
+        const e=objects.enemies[i];
+        const mission = MISSIONS[currentMission];
+        
+        if (mission.type === "survive") {
+          // В миссии выживания враги активируются при приближении
+          const dx = player.x - e.x;
+          const dy = player.y - e.y;
+          const distance = Math.sqrt(dx*dx + dy*dy);
+          
+          // Проверяем активацию врага
+          if (!e.active && distance < e.activationDistance) {
+            e.active = true;
+          }
+          
+          // Движение только если враг активен
+          if (e.active) {
+            if (distance > 0) {
+              // Нормализованное направление к игроку
+              e.vx = (dx / distance) * e.speed;
+              e.vy = (dy / distance) * e.speed;
+            }
+            
+            // Обновление позиции врага
+            e.x += e.vx;
+            e.y += e.vy;
+          }
+          
+          // Удаляем врагов, которые ушли за пределы экрана
+          if (e.x < -50*S || e.x > canvas.width/DPR + 50*S || 
+              e.y < -50*S || e.y > canvas.height/DPR + 50*S) {
+            objects.enemies.splice(i,1);
+            continue;
+          }
+        } else {
+          // Обычное движение врагов влево
+          e.x -= WORLD.speed*1.05;
+        }
+        
         if(aabb(e,player)){ 
           alive=false; 
+          missionActive = false;
           updateMainButton(coins, alive); 
           // Добавляем эффект при столкновении
           spawnBurst(player.x + player.w/2, player.y - player.h/2, '#ff6666', 15);
         }
-        else if(e.x + e.w < -10) objects.enemies.splice(i,1);
+        else if(e.x + e.w < -10 && mission.type !== "survive" && mission.type !== "chase") objects.enemies.splice(i,1);
       }
     }
 
@@ -346,12 +962,115 @@ function bindMainButton(getCoins, getAlive){
     drawBackground();
     objects.coins.forEach(drawCoin);
     objects.enemies.forEach(drawEnemy);
+    objects.platforms.forEach(drawPlatform);
+    if (objects.bonus) drawBonus(objects.bonus);
     drawParticles(dt);
     drawPicoCat();
 
+    // Прогресс-бар миссии
+    if (missionActive) {
+      const mission = MISSIONS[currentMission];
+      let progress = 0;
+      let displayText = "";
+      
+      if (mission.type === "time") {
+        progress = Math.min(1, (Date.now() - missionStartTime) / mission.target);
+        const timeLeft = Math.max(0, Math.ceil((mission.target - (Date.now() - missionStartTime)) / 1000));
+        displayText = `${timeLeft}с`;
+        
+        // Проверка завершения миссии времени
+        if (progress >= 1) {
+          missionActive = false;
+          alive = false;
+        }
+      } else if (mission.type === "collect") {
+        progress = Math.min(1, mission.progress / mission.target);
+        displayText = `${mission.progress}/${mission.target} ${mission.targetCoin}`;
+        
+        // Проверка завершения миссии сбора
+        if (mission.progress >= mission.target) {
+          missionActive = false;
+          alive = false;
+        }
+      } else if (mission.type === "survive") {
+        progress = Math.min(1, (Date.now() - missionStartTime) / mission.target);
+        const timeLeft = Math.max(0, Math.ceil((mission.target - (Date.now() - missionStartTime)) / 1000));
+        displayText = `${timeLeft}с`;
+        
+        // Проверка завершения миссии выживания
+        if (progress >= 1) {
+          missionActive = false;
+          alive = false;
+        }
+      } else if (mission.type === "jump") {
+        progress = Math.min(1, mission.progress / mission.target);
+        const timeOnGround = Math.max(0, Math.ceil((2000 - groundTime) / 1000));
+        displayText = `${mission.progress}/${mission.target} монет (${timeOnGround}с на земле)`;
+        
+        // Проверка завершения миссии прыжков
+        if (mission.progress >= mission.target) {
+          missionActive = false;
+          alive = false;
+        }
+        
+        // Проверка провала миссии (время на земле)
+        if (groundTime > 2000) {
+          missionActive = false;
+          alive = false;
+        }
+      } else if (mission.type === "chase") {
+        progress = Math.min(1, (Date.now() - missionStartTime) / mission.target);
+        const timeLeft = Math.max(0, Math.ceil((mission.target - (Date.now() - missionStartTime)) / 1000));
+        displayText = `${timeLeft}с - Догони золотую монету!`;
+        
+        // Проверка завершения миссии гонки
+        if (mission.progress >= 1) {
+          missionActive = false;
+          alive = false;
+        }
+        
+        // Проверка провала миссии (время истекло)
+        if (progress >= 1) {
+          missionActive = false;
+          alive = false;
+        }
+      }
+      
+      const barWidth = canvas.width/DPR - 40*S;
+      const barHeight = 8*S;
+      const barY = canvas.height/DPR - 20*S;
+      
+      // Фон прогресс-бара
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.fillRect(20*S, barY, barWidth, barHeight);
+      
+      // Заполнение прогресса
+      ctx.fillStyle = '#5cc8ff';
+      ctx.fillRect(20*S, barY, barWidth * progress, barHeight);
+      
+      // Текст прогресса
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `${Math.round(12*S)}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.fillText(displayText, canvas.width/DPR/2, barY - 5*S);
+      ctx.textAlign = 'left';
+    }
+    
     if(!alive){
-      ctx.fillStyle='#ffb3c0'; ctx.font=`${Math.round(18*S)}px system-ui, sans-serif`;
-      ctx.fillText('Игра окончена — Рестарт', Math.round(20*S), Math.round(40*S));
+      const mission = MISSIONS[currentMission];
+      if (missionActive) {
+        ctx.fillStyle='#ffb3c0'; ctx.font=`${Math.round(18*S)}px system-ui, sans-serif`;
+        ctx.fillText('Игра окончена — Рестарт', Math.round(20*S), Math.round(40*S));
+      } else {
+        ctx.fillStyle='#5cc8ff'; ctx.font=`${Math.round(20*S)}px system-ui, sans-serif`;
+        ctx.fillText('Миссия завершена!', Math.round(20*S), Math.round(40*S));
+        ctx.fillStyle='#ffffff'; ctx.font=`${Math.round(16*S)}px system-ui, sans-serif`;
+        ctx.fillText(`Собрано монет: ${coins}`, Math.round(20*S), Math.round(65*S));
+        
+        // Показываем название миссии
+        ctx.fillStyle='#5cc8ff'; ctx.font=`${Math.round(14*S)}px system-ui, sans-serif`;
+        ctx.fillText(mission.name, Math.round(20*S), Math.round(85*S));
+      }
     }
     requestAnimationFrame(loop);
   }
