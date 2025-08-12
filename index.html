@@ -173,6 +173,17 @@ function bindMainButton(getCoins, getAlive){
     }
     ctx.globalAlpha=1;
     ctx.fillStyle='#0b152f'; ctx.fillRect(0,GROUND_Y,canvas.width/DPR,canvas.height/DPR-GROUND_Y);
+    
+    // Добавляем линии горизонта для лучшей ориентации
+    ctx.strokeStyle='rgba(255,255,255,0.1)';
+    ctx.lineWidth=1;
+    for(let i=0;i<5;i++){
+      const y = GROUND_Y - (i+1) * Math.round(40*S);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width/DPR, y);
+      ctx.stroke();
+    }
   }
 
   // === draw cat
@@ -195,12 +206,35 @@ function bindMainButton(getCoins, getAlive){
   // === enemies
   function spawnEnemy(){
     const w=Math.round(44*S), h=Math.round(32*S);
-    objects.enemies.push({ kind:'enemy', x:canvas.width/DPR+rand(0,120*S), y:GROUND_Y, w,h });
+    // Увеличиваем дистанцию появления врагов для лучшей видимости
+    objects.enemies.push({ kind:'enemy', x:canvas.width/DPR+rand(200*S,300*S), y:GROUND_Y, w,h });
   }
   function drawEnemy(e){
     const top = e.y - e.h;
-    ctx.fillStyle='#ff6666'; ctx.fillRect(e.x, top, e.w, e.h);
-    ctx.fillStyle='#3a0f0f'; ctx.fillRect(e.x+e.w/2-3, top+Math.round(8*S), 6, 6);
+    
+    // Добавляем тень для лучшей видимости
+    ctx.fillStyle='rgba(255,0,0,0.3)'; 
+    ctx.fillRect(e.x-2, top-2, e.w+4, e.h+4);
+    
+    // Основной блок врага
+    ctx.fillStyle='#ff6666'; 
+    ctx.fillRect(e.x, top, e.w, e.h);
+    
+    // Добавляем блик для объёма
+    ctx.fillStyle='rgba(255,255,255,0.3)'; 
+    ctx.fillRect(e.x+2, top+2, e.w-4, 4);
+    
+    // Глаз врага
+    ctx.fillStyle='#3a0f0f'; 
+    ctx.fillRect(e.x+e.w/2-3, top+Math.round(8*S), 6, 6);
+    
+    // Добавляем красное свечение для предупреждения
+    if (e.x < canvas.width/DPR + 100*S) {
+      ctx.globalAlpha = 0.4 * (1 - (e.x - canvas.width/DPR) / (100*S));
+      ctx.fillStyle='#ff0000'; 
+      ctx.fillRect(e.x-10, top-10, e.w+20, e.h+20);
+      ctx.globalAlpha = 1;
+    }
   }
 
   // === coins
@@ -304,7 +338,12 @@ function bindMainButton(getCoins, getAlive){
       }
       for(let i=objects.enemies.length-1;i>=0;i--){
         const e=objects.enemies[i]; e.x -= WORLD.speed*1.05;
-        if(aabb(e,player)){ alive=false; updateMainButton(coins, alive); }
+        if(aabb(e,player)){ 
+          alive=false; 
+          updateMainButton(coins, alive); 
+          // Добавляем эффект при столкновении
+          spawnBurst(player.x + player.w/2, player.y - player.h/2, '#ff6666', 15);
+        }
         else if(e.x + e.w < -10) objects.enemies.splice(i,1);
       }
     }
