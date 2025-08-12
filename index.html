@@ -31,18 +31,15 @@
     background:#0f1730; border:1px solid #1e2747; border-radius:999px; padding:6px 12px; font-weight:600; font-size:14px;
     pointer-events:none;
   }
-  /* Нижняя панель кнопок */
+  /* Верхняя панель кнопок */
   .controls{
-    position:fixed; left:0; right:0; bottom:0;
-    padding:8px calc(12px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(12px + var(--safe-left));
-    background:linear-gradient(180deg, rgba(11,16,32,0) 0%, rgba(11,16,32,0.85) 30%, rgba(11,16,32,0.95) 100%);
-    display:flex; gap:10px; justify-content:center;
+    position:fixed; right:12px; top:calc(12px + var(--safe-top));
+    display:flex; gap:8px; flex-direction:column;
   }
   .btn{
-    flex:1 1 0; max-width:220px;
     border:1px solid #1e2747; background:#162041; color:#e7f3ff;
-    border-radius:14px; padding:14px 16px; font-weight:700; font-size:16px; text-align:center;
-    user-select:none; -webkit-tap-highlight-color: transparent;
+    border-radius:12px; padding:8px 12px; font-weight:600; font-size:14px; text-align:center;
+    user-select:none; -webkit-tap-highlight-color: transparent; min-width:80px;
   }
   .btn:active{ transform:translateY(1px); opacity:.9; }
   .btn.secondary{ background:#0f1730; }
@@ -66,16 +63,12 @@ const tg = window.Telegram?.WebApp;
 try { tg?.ready(); tg?.expand(); tg?.BackButton?.hide(); } catch(e){}
 function updateMainButton(coins, alive){
   if (!tg) return;
-  tg.MainButton.setParams({ text: `Отправить результат: ${coins} монет` });
-  if (coins>0 && alive) tg.MainButton.show(); else tg.MainButton.hide();
+  // Убираем кнопку "Отправить результат"
+  tg.MainButton.hide();
 }
 function bindMainButton(getCoins, getAlive){
   if (!tg) return;
-  tg.MainButton.onClick(() => {
-    const payload = { type:'score', coins:getCoins(), ts:Date.now() };
-    try { tg.HapticFeedback?.impactOccurred('medium'); } catch(_){}
-    tg.sendData(JSON.stringify(payload));
-  });
+  // Убираем обработчик кнопки "Отправить результат"
 }
 </script>
 
@@ -117,7 +110,7 @@ function bindMainButton(getCoins, getAlive){
   const CAT_COLORS = ['#f4a261','#5bb6ff','#ff9bb0','#ffd166','#8fff8b','#bba0ff'];
   let catColorIndex = 0;
 
-  const player = { kind:'player', x:150, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true };
+  const player = { kind:'player', x:80, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true };
   const objects = { coins: [], enemies: [], particles: [] };
   let lastSpawn = { coin: 0, enemy: 0 };
 
@@ -150,7 +143,7 @@ function bindMainButton(getCoins, getAlive){
     CELL = Math.round(6 * S);
     CAT_W = 8*CELL; CAT_H = 9*CELL;
     player.w = CAT_W; player.h = CAT_H;
-    player.x = Math.round(150 * S);
+    player.x = Math.round(80 * S);
     player.y = GROUND_Y;
   }
 
@@ -159,7 +152,7 @@ function bindMainButton(getCoins, getAlive){
     alive=true; paused=false;
     WORLD.speed=START_SPEED; WORLD.t=0;
     objects.coins.length=0; objects.enemies.length=0; objects.particles.length=0;
-    Object.assign(player,{ x:Math.round(150*S), y:GROUND_Y, vy:0, onGround:true });
+    Object.assign(player,{ x:Math.round(80*S), y:GROUND_Y, vy:0, onGround:true });
   }
 
   // === background
