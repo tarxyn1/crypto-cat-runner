@@ -2,45 +2,79 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Crypto Cat Runner — Telegram WebApp</title>
-<!-- Telegram WebApp SDK -->
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<title>Crypto Cat Runner — Mini App</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  html,body{margin:0;background:#0b1020;color:#e7f3ff;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-  .hud{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:10px 8px;font-weight:600}
-  .pill{background:#0f1730;border:1px solid #1e2747;border-radius:999px;padding:6px 10px}
-  canvas{width:min(960px,95vw);height:auto;display:block;margin:8px auto 16px;background:#0a0f1e;
-         border:1px solid #1e2747;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.35);image-rendering:pixelated}
+  :root{
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+  html,body{
+    margin:0; height:100%; background:#0b1020; color:#e7f3ff; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    overscroll-behavior:none; touch-action:manipulation;
+  }
+  /* Полноэкранный холст */
+  #wrap{
+    position:fixed; inset:0; display:grid; grid-template-rows: 1fr auto;
+    padding:var(--safe-top) var(--safe-right) calc(var(--safe-bottom) + 72px) var(--safe-left);
+  }
+  canvas{
+    position:fixed; inset:0;
+    width:100vw; height:100vh; display:block; background:#0a0f1e; image-rendering:pixelated;
+  }
+  /* HUD счётчик */
+  .hud{
+    position:fixed; left:12px; top:calc(8px + var(--safe-top));
+    background:#0f1730; border:1px solid #1e2747; border-radius:999px; padding:6px 12px; font-weight:600; font-size:14px;
+    pointer-events:none;
+  }
+  /* Нижняя панель кнопок */
+  .controls{
+    position:fixed; left:0; right:0; bottom:0;
+    padding:8px calc(12px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(12px + var(--safe-left));
+    background:linear-gradient(180deg, rgba(11,16,32,0) 0%, rgba(11,16,32,0.85) 30%, rgba(11,16,32,0.95) 100%);
+    display:flex; gap:10px; justify-content:center;
+  }
+  .btn{
+    flex:1 1 0; max-width:220px;
+    border:1px solid #1e2747; background:#162041; color:#e7f3ff;
+    border-radius:14px; padding:14px 16px; font-weight:700; font-size:16px; text-align:center;
+    user-select:none; -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active{ transform:translateY(1px); opacity:.9; }
+  .btn.secondary{ background:#0f1730; }
+  .btn.warn{ background:#2a1030; border-color:#432a59; }
 </style>
 </head>
 <body>
-  <div class="hud">
-    <div class="pill">↑/Space — прыжок • R — рестарт • P — пауза • K — смена цвета кота</div>
-    <div class="pill">Монеты: <span id="coins">0</span></div>
-  </div>
-  <canvas id="game" width="960" height="540"></canvas>
+<div id="wrap">
+  <canvas id="game"></canvas>
+</div>
+<div class="hud">Монеты: <span id="coins">0</span></div>
+<div class="controls">
+  <div class="btn" id="btnRestart">⟲ Рестарт</div>
+  <div class="btn secondary" id="btnPause">⏸ Пауза</div>
+  <div class="btn warn" id="btnColor">🎨 Цвет кота</div>
+</div>
 
 <script>
 /* ===== Telegram WebApp glue (no backend) ===== */
 const tg = window.Telegram?.WebApp;
-try {
-  tg?.ready(); tg?.expand(); tg?.BackButton?.hide();
-  // Автотема из Telegram (если есть)
-  if (tg?.themeParams?.bg_color) document.body.style.background = tg.themeParams.bg_color;
-} catch(e){ console.warn(e); }
-
+try { tg?.ready(); tg?.expand(); tg?.BackButton?.hide(); } catch(e){}
 function updateMainButton(coins, alive){
   if (!tg) return;
   tg.MainButton.setParams({ text: `Отправить результат: ${coins} монет` });
-  if (coins > 0 && alive) tg.MainButton.show(); else tg.MainButton.hide();
+  if (coins>0 && alive) tg.MainButton.show(); else tg.MainButton.hide();
 }
 function bindMainButton(getCoins, getAlive){
   if (!tg) return;
   tg.MainButton.onClick(() => {
-    const payload = { type:'score', coins: getCoins(), ts: Date.now() };
+    const payload = { type:'score', coins:getCoins(), ts:Date.now() };
     try { tg.HapticFeedback?.impactOccurred('medium'); } catch(_){}
-    tg.sendData(JSON.stringify(payload)); // прилетит в web_app_data у бота
+    tg.sendData(JSON.stringify(payload));
   });
 }
 </script>
@@ -48,42 +82,46 @@ function bindMainButton(getCoins, getAlive){
 <script>
 (() => {
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  const ctx = canvas.getContext('2d', { alpha:true });
+  let DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
-  // ===== World & physics
-  const GROUND_Y = 420, GRAVITY = 0.9, JUMP_VELOCITY = -17;
-  const START_SPEED = 6, SPEEDUP = 0.0009;
-  const SPAWN_COOLDOWN = { coin: 1000, enemy: 1100 }; // монет немного реже
+  // ==== адаптивные константы (масштаб от высоты экрана)
+  let S = 1; // scale
+  let GROUND_Y = 420;
+  let GRAVITY = 0.9, JUMP_VELOCITY = -17;
+  let START_SPEED = 6, SPEEDUP = 0.0009;
+  const SPAWN_COOLDOWN = { coin: 1000, enemy: 1100 };
   const WORLD = { speed: START_SPEED, t: 0 };
 
-  // ===== State
-  let coins = 0, alive = true, paused = false;
   const coinsEl = document.getElementById('coins');
+  const btnRestart = document.getElementById('btnRestart');
+  const btnPause   = document.getElementById('btnPause');
+  const btnColor   = document.getElementById('btnColor');
 
-  // Pico Park cat — маска 8x9, y = бейслайн (низ спрайта)
-  const CELL = 6;
-  const CAT_W = 8*CELL, CAT_H = 9*CELL;
-  const player = { kind:'player', x:150, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true };
+  let coins = 0, alive = true, paused = false;
 
+  // Кот Pico Park
+  let CELL = 6;
+  let CAT_W = 8*CELL, CAT_H = 9*CELL;
   const CAT_MAP = [
-    [1,1,0,0,0,0,1,1], // уши
-    [1,1,1,1,1,1,1,1], // голова
-    [1,1,2,1,1,2,1,1], // глаза
-    [1,1,1,1,1,1,1,1], // щеки
-    [0,1,1,1,1,1,1,0], // переход к мордочке
-    [0,0,1,1,1,1,0,0], // мордочка
-    [0,0,0,3,3,0,0,0], // зуб
-    [0,0,1,0,0,1,0,0], // ножки
-    [0,0,1,0,0,1,0,0], // ступни
+    [1,1,0,0,0,0,1,1],
+    [1,1,1,1,1,1,1,1],
+    [1,1,2,1,1,2,1,1],
+    [1,1,1,1,1,1,1,1],
+    [0,1,1,1,1,1,1,0],
+    [0,0,1,1,1,1,0,0],
+    [0,0,0,3,3,0,0,0],
+    [0,0,1,0,0,1,0,0],
+    [0,0,1,0,0,1,0,0],
   ];
   const CAT_COLORS = ['#f4a261','#5bb6ff','#ff9bb0','#ffd166','#8fff8b','#bba0ff'];
   let catColorIndex = 0;
 
+  const player = { kind:'player', x:150, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true };
   const objects = { coins: [], enemies: [], particles: [] };
   let lastSpawn = { coin: 0, enemy: 0 };
 
-  // ===== Utils + collisions
+  // === helpers
   const rand = (a,b)=>Math.random()*(b-a)+a;
   const getRect = e => (e.kind==='player'||e.kind==='enemy')
     ? {x:e.x, y:e.y - e.h, w:e.w, h:e.h}
@@ -91,67 +129,86 @@ function bindMainButton(getCoins, getAlive){
   function aabb(A,B){ const a=getRect(A), b=getRect(B);
     return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
 
-  function reset(){
-    coins = 0; coinsEl.textContent = coins; updateMainButton(coins, true);
-    alive = true; paused = false;
-    WORLD.speed = START_SPEED; WORLD.t = 0;
-    objects.coins.length=0; objects.enemies.length=0; objects.particles.length=0;
-    Object.assign(player, { x:150, y:GROUND_Y, vy:0, onGround:true });
+  function resize(){
+    DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    canvas.width  = Math.floor(window.innerWidth * DPR);
+    canvas.height = Math.floor(window.innerHeight * DPR);
+    canvas.style.width  = '100vw';
+    canvas.style.height = '100vh';
+    ctx.setTransform(DPR,0,0,DPR,0,0); // логические пиксели
+
+    // масштаб от базовой высоты 540
+    S = window.innerHeight / 540;
+    // Пересчёт размеров/физики
+    GROUND_Y      = Math.round(420 * S);
+    GRAVITY       = 0.9 * S;
+    JUMP_VELOCITY = -17 * S;
+    START_SPEED   = 6 * S;
+    SPEEDUP       = 0.0009 * S;
+    WORLD.speed   = Math.max(WORLD.speed, START_SPEED);
+
+    CELL = Math.round(6 * S);
+    CAT_W = 8*CELL; CAT_H = 9*CELL;
+    player.w = CAT_W; player.h = CAT_H;
+    player.x = Math.round(150 * S);
+    player.y = GROUND_Y;
   }
 
-  // ===== Background
+  function reset(){
+    coins=0; coinsEl.textContent=coins; updateMainButton(coins,true);
+    alive=true; paused=false;
+    WORLD.speed=START_SPEED; WORLD.t=0;
+    objects.coins.length=0; objects.enemies.length=0; objects.particles.length=0;
+    Object.assign(player,{ x:Math.round(150*S), y:GROUND_Y, vy:0, onGround:true });
+  }
+
+  // === background
   function drawBackground(){
-    ctx.fillStyle='#081326'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    // звёзды
+    ctx.fillStyle='#081326'; ctx.fillRect(0,0,canvas.width/DPR,canvas.height/DPR);
     ctx.globalAlpha=.5;
     for(let i=0;i<120;i++){
-      const x=((i*83+WORLD.t*0.06)%(canvas.width+200))-100;
-      const y=(i*53)%260+10;
+      const x=((i*83+WORLD.t*0.06)%(canvas.width/DPR+200))-100;
+      const y=(i*53)%Math.round(260*S)+10;
       ctx.fillStyle='#5cc8ff'; ctx.fillRect(x,y,2,2);
     }
     ctx.globalAlpha=1;
-    // земля
-    ctx.fillStyle='#0b152f'; ctx.fillRect(0,GROUND_Y,canvas.width,canvas.height-GROUND_Y);
+    ctx.fillStyle='#0b152f'; ctx.fillRect(0,GROUND_Y,canvas.width/DPR,canvas.height/DPR-GROUND_Y);
   }
 
-  // ===== Cat (Pico Park)
+  // === draw cat
   function drawPicoCat(){
     const x0 = player.x, y0 = player.y - CAT_H;
     const BODY = CAT_COLORS[catColorIndex], EYE='#000', TOOTH='#fff';
     const px = player.w/8, py = player.h/9;
 
-    // контур каждого пикселя
     for(let r=0;r<CAT_MAP.length;r++)
       for(let c=0;c<CAT_MAP[0].length;c++)
         if(CAT_MAP[r][c]){ ctx.fillStyle='#111'; ctx.fillRect(x0+c*px-1, y0+r*py-1, px+2, py+2); }
-
-    // заливка
-    for(let r=0;r<CAT_MAP.length;r++){
+    for(let r=0;r<CAT_MAP.length;r++)
       for(let c=0;c<CAT_MAP[0].length;c++){
         const cell = CAT_MAP[r][c]; if(!cell) continue;
-        ctx.fillStyle = (cell===1)?BODY:(cell===2)?EYE:TOOTH;
+        ctx.fillStyle=(cell===1)?BODY:(cell===2)?EYE:TOOTH;
         ctx.fillRect(x0+c*px, y0+r*py, px, py);
       }
-    }
   }
 
-  // ===== Enemies (y — бейслайн)
+  // === enemies
   function spawnEnemy(){
-    const w=44,h=32;
-    objects.enemies.push({ kind:'enemy', x:canvas.width+rand(0,120), y:GROUND_Y, w,h });
+    const w=Math.round(44*S), h=Math.round(32*S);
+    objects.enemies.push({ kind:'enemy', x:canvas.width/DPR+rand(0,120*S), y:GROUND_Y, w,h });
   }
   function drawEnemy(e){
     const top = e.y - e.h;
     ctx.fillStyle='#ff6666'; ctx.fillRect(e.x, top, e.w, e.h);
-    ctx.fillStyle='#3a0f0f'; ctx.fillRect(e.x+e.w/2-3, top+8, 6, 6);
+    ctx.fillStyle='#3a0f0f'; ctx.fillRect(e.x+e.w/2-3, top+Math.round(8*S), 6, 6);
   }
 
-  // ===== Animated crypto coins
+  // === coins
   const COIN_SKINS = ['USDT','BTC','TON'];
   function spawnCoin(){
-    const r=16, top=GROUND_Y - 80 - Math.random()*110;
+    const r=Math.round(16*S), top=GROUND_Y - Math.round(80*S) - Math.random()*Math.round(110*S);
     const skin=COIN_SKINS[Math.floor(Math.random()*COIN_SKINS.length)];
-    objects.coins.push({ kind:'coin', x:canvas.width+rand(0,120), y:top, w:r*2, h:r*2, r,
+    objects.coins.push({ kind:'coin', x:canvas.width/DPR+rand(0,120*S), y:top, w:r*2, h:r*2, r,
       skin, spin:rand(0,1000), shimmer:rand(0,1000) });
   }
   function coinPalette(s){
@@ -165,121 +222,111 @@ function bindMainButton(getCoins, getAlive){
   function drawCoinLogo(s){
     switch(s){
       case 'USDT':
-        ctx.fillRect(-12,-2,24,4); ctx.fillRect(-3,-2,6,16); ctx.clearRect(-9,6,18,4); break;
+        ctx.fillRect(-12*S,-2*S,24*S,4*S); ctx.fillRect(-3*S,-2*S,6*S,16*S); ctx.clearRect(-9*S,6*S,18*S,4*S); break;
       case 'BTC':
-        ctx.fillRect(-3,-12,6,24);
-        ctx.beginPath(); ctx.arc(0,-6,8,Math.PI*0.9,Math.PI*0.1,false);
-        ctx.arc(0,6,8,Math.PI*0.9,Math.PI*0.1,false); ctx.fill(); break;
+        ctx.fillRect(-3*S,-12*S,6*S,24*S);
+        ctx.beginPath(); ctx.arc(0,-6*S,8*S,Math.PI*0.9,Math.PI*0.1,false);
+        ctx.arc(0, 6*S,8*S,Math.PI*0.9,Math.PI*0.1,false); ctx.fill(); break;
       case 'TON':
-        ctx.beginPath(); ctx.moveTo(0,-10); ctx.lineTo(10,0); ctx.lineTo(0,12); ctx.lineTo(-10,0); ctx.closePath();
+        ctx.beginPath(); ctx.moveTo(0,-10*S); ctx.lineTo(10*S,0); ctx.lineTo(0,12*S); ctx.lineTo(-10*S,0); ctx.closePath();
         ctx.strokeStyle=ctx.fillStyle; ctx.stroke(); break;
     }
   }
   function drawCoin(c){
-    const {x,y,r,skin} = c, pal = coinPalette(skin);
+    const {x,y,r,skin}=c, pal=coinPalette(skin);
     const squash=0.12*Math.sin((WORLD.t+c.spin)*0.01);
-
-    ctx.save();
-    ctx.translate(x+r, y+r);
-    ctx.scale(1+squash, 1-squash);
-    ctx.rotate(((WORLD.t+c.spin)*0.006) % (Math.PI*2));
-
-    const g=ctx.createRadialGradient(0,0,r*0.25,0,0,r);
-    g.addColorStop(0,pal.inner); g.addColorStop(1,pal.outer);
+    ctx.save(); ctx.translate(x+r, y+r); ctx.scale(1+squash,1-squash);
+    ctx.rotate(((WORLD.t+c.spin)*0.006)%(Math.PI*2));
+    const g=ctx.createRadialGradient(0,0,r*0.25,0,0,r); g.addColorStop(0,pal.inner); g.addColorStop(1,pal.outer);
     ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
-
-    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.arc(0,0,r-1.5,0,Math.PI*2); ctx.stroke();
-
+    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,r-1.5,0,Math.PI*2); ctx.stroke();
     ctx.save(); ctx.rotate(Math.PI*0.25);
     ctx.globalAlpha=0.25+0.35*((Math.sin((WORLD.t+c.shimmer)*0.008)+1)/2);
     const grd=ctx.createLinearGradient(-r,-r,r,r);
     grd.addColorStop(0,'rgba(255,255,255,0)'); grd.addColorStop(0.5,'rgba(255,255,255,0.8)'); grd.addColorStop(1,'rgba(255,255,255,0)');
     ctx.fillStyle=grd; ctx.fillRect(-r,-r,r*2,r*2); ctx.restore();
-
     ctx.fillStyle=pal.logo; ctx.strokeStyle=pal.logo; drawCoinLogo(skin);
     ctx.restore();
   }
 
-  // ===== Particles (простые искры на сбор монеты)
+  // === particles (лаконично)
   function spawnBurst(x,y,color,count=8){
     for(let i=0;i<count;i++)
-      objects.particles.push({x,y,vx:rand(-2,2),vy:rand(-3,-1),t:0,life:rand(300,700),color});
+      objects.particles.push({x,y,vx:rand(-2*S,2*S),vy:rand(-3*S,-1*S),t:0,life:rand(300,700),color});
   }
   function drawParticles(dt){
     for(let i=objects.particles.length-1;i>=0;i--){
       const p=objects.particles[i];
-      p.t+=dt; p.x+=p.vx; p.y+=p.vy; p.vy+=0.08;
+      p.t+=dt; p.x+=p.vx; p.y+=p.vy; p.vy+=0.08*S;
       const a=Math.max(0,1-p.t/p.life);
-      if (a<=0){ objects.particles.splice(i,1); continue; }
+      if(a<=0){ objects.particles.splice(i,1); continue; }
       ctx.globalAlpha=a; ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,3,3); ctx.globalAlpha=1;
     }
   }
 
-  // ===== Input
-  function jump(){ if(alive && player.onGround){ player.vy=JUMP_VELOCITY; player.onGround=false; } }
-  document.addEventListener('keydown',e=>{
-    if (e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); jump(); }
-    if (e.code==='KeyR') reset();
-    if (e.code==='KeyP') paused=!paused;
-    if (e.code==='KeyK') catColorIndex=(catColorIndex+1)%CAT_COLORS.length;
+  // === input
+  const jump = ()=>{ if(alive && player.onGround){ player.vy=JUMP_VELOCITY; player.onGround=false; } };
+  canvas.addEventListener('pointerdown', jump, { passive:true });
+  document.addEventListener('keydown', e=>{
+    if(e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); jump(); }
+    if(e.code==='KeyR') reset();
+    if(e.code==='KeyP') { paused=!paused; btnPause.textContent = paused ? '▶ Продолжить' : '⏸ Пауза'; }
+    if(e.code==='KeyK') { catColorIndex=(catColorIndex+1)%CAT_COLORS.length; }
   });
-  canvas.addEventListener('pointerdown', jump);
 
-  // ===== Loop
+  // === bottom buttons
+  btnRestart.onclick = ()=>{ reset(); };
+  btnPause.onclick   = ()=>{ paused=!paused; btnPause.textContent = paused ? '▶ Продолжить' : '⏸ Пауза'; };
+  btnColor.onclick   = ()=>{ catColorIndex=(catColorIndex+1)%CAT_COLORS.length; };
+
+  // === loop
   let last = performance.now();
   function loop(now){
     const dt = now - last; last = now;
 
-    if (!paused && alive){
+    if(!paused && alive){
       WORLD.t += dt;
       WORLD.speed += SPEEDUP * dt;
 
-      if (now - lastSpawn.coin > SPAWN_COOLDOWN.coin){ spawnCoin(); lastSpawn.coin = now; }
-      if (now - lastSpawn.enemy > SPAWN_COOLDOWN.enemy){ spawnEnemy(); lastSpawn.enemy = now; }
+      if(now - lastSpawn.coin  > SPAWN_COOLDOWN.coin)  { spawnCoin();  lastSpawn.coin=now; }
+      if(now - lastSpawn.enemy > SPAWN_COOLDOWN.enemy) { spawnEnemy(); lastSpawn.enemy=now; }
 
-      // physics
       player.vy += GRAVITY; player.y += player.vy;
-      if (player.y >= GROUND_Y){ player.y = GROUND_Y; player.vy=0; player.onGround=true; }
+      if(player.y >= GROUND_Y){ player.y=GROUND_Y; player.vy=0; player.onGround=true; }
 
-      // coins
-      for (let i=objects.coins.length-1;i>=0;i--){
-        const c = objects.coins[i]; c.x -= WORLD.speed;
-        if (aabb(c,player)){
-          coins++; coinsEl.textContent = coins; updateMainButton(coins, alive);
+      for(let i=objects.coins.length-1;i>=0;i--){
+        const c=objects.coins[i]; c.x -= WORLD.speed;
+        if(aabb(c,player)){
+          coins++; coinsEl.textContent=coins; updateMainButton(coins, alive);
           spawnBurst(c.x+c.r, c.y+c.r, 'rgba(255,255,255,.9)', 10);
           objects.coins.splice(i,1);
-        } else if (c.x + c.w < -10) objects.coins.splice(i,1);
+        } else if(c.x + c.w < -10) objects.coins.splice(i,1);
       }
-      // enemies
-      for (let i=objects.enemies.length-1;i>=0;i--){
-        const e = objects.enemies[i]; e.x -= WORLD.speed*1.05;
-        if (aabb(e,player)){ alive=false; updateMainButton(coins, alive); }
-        else if (e.x + e.w < -10) objects.enemies.splice(i,1);
+      for(let i=objects.enemies.length-1;i>=0;i--){
+        const e=objects.enemies[i]; e.x -= WORLD.speed*1.05;
+        if(aabb(e,player)){ alive=false; updateMainButton(coins, alive); }
+        else if(e.x + e.w < -10) objects.enemies.splice(i,1);
       }
     }
 
     // render
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0,0,canvas.width/DPR,canvas.height/DPR);
     drawBackground();
     objects.coins.forEach(drawCoin);
     objects.enemies.forEach(drawEnemy);
     drawParticles(dt);
     drawPicoCat();
 
-    // HUD: «Игра окончена»
-    if (!alive){
-      ctx.fillStyle='#ffb3c0'; ctx.font='28px system-ui, sans-serif';
-      ctx.fillText('Игра окончена — R для рестарта', canvas.width/2-180, canvas.height/2);
+    if(!alive){
+      ctx.fillStyle='#ffb3c0'; ctx.font=`${Math.round(18*S)}px system-ui, sans-serif`;
+      ctx.fillText('Игра окончена — Рестарт', Math.round(20*S), Math.round(40*S));
     }
-    if (paused){
-      ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle='#e7f3ff'; ctx.font='32px system-ui, sans-serif'; ctx.fillText('Пауза (P)', canvas.width/2-70, canvas.height/2);
-    }
-
     requestAnimationFrame(loop);
   }
 
+  // init
+  window.addEventListener('resize', resize);
+  resize();
   reset();
   bindMainButton(()=>coins, ()=>alive);
   requestAnimationFrame(t=>{ last=t; loop(t); });
