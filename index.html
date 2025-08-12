@@ -81,9 +81,9 @@ function bindMainButton(getCoins, getAlive){
   // ==== адаптивные константы (масштаб от высоты экрана)
   let S = 1; // scale
   let GROUND_Y = 420;
-  let GRAVITY = 0.9, JUMP_VELOCITY = -17;
+  let GRAVITY = 1.4, JUMP_VELOCITY = -20;
   let START_SPEED = 6, SPEEDUP = 0.0009;
-  const SPAWN_COOLDOWN = { coin: 1000, enemy: 1100 };
+  const SPAWN_COOLDOWN = { coin: 1000, enemy: 1400 };
   const WORLD = { speed: START_SPEED, t: 0 };
 
   const coinsEl = document.getElementById('coins');
@@ -134,8 +134,8 @@ function bindMainButton(getCoins, getAlive){
     S = window.innerHeight / 540;
     // Пересчёт размеров/физики
     GROUND_Y      = Math.round(420 * S);
-    GRAVITY       = 0.9 * S;
-    JUMP_VELOCITY = -17 * S;
+    GRAVITY       = 1.4 * S;
+    JUMP_VELOCITY = -20 * S;
     START_SPEED   = 6 * S;
     SPEEDUP       = 0.0009 * S;
     WORLD.speed   = Math.max(WORLD.speed, START_SPEED);
