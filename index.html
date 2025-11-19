@@ -1,1087 +1,474 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>Crypto Cat Runner — Mini App</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-  :root{
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-left: env(safe-area-inset-left, 0px);
-    --safe-right: env(safe-area-inset-right, 0px);
-  }
-  html,body{
-    margin:0; height:100%; background:#0b1020; color:#e7f3ff; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    overscroll-behavior:none; touch-action:manipulation;
-  }
-  /* Полноэкранный холст */
-  #wrap{
-    position:fixed; inset:0; display:grid; grid-template-rows: 1fr auto;
-    padding:var(--safe-top) var(--safe-right) calc(var(--safe-bottom) + 72px) var(--safe-left);
-  }
-  canvas{
-    position:fixed; inset:0;
-    width:100vw; height:100vh; display:block; background:#0a0f1e; image-rendering:pixelated;
-  }
-  /* HUD счётчик */
-  .hud{
-    position:fixed; left:12px; top:calc(8px + var(--safe-top));
-    background:#0f1730; border:1px solid #1e2747; border-radius:999px; padding:6px 12px; font-weight:600; font-size:14px;
-    pointer-events:none;
-  }
-  /* Верхняя панель кнопок */
-  .controls{
-    position:fixed; right:12px; top:calc(12px + var(--safe-top));
-    display:flex; gap:8px; flex-direction:column; max-height:60vh; overflow-y:auto;
-  }
-  .btn{
-    border:1px solid #1e2747; background:#162041; color:#e7f3ff;
-    border-radius:12px; padding:8px 12px; font-weight:600; font-size:14px; text-align:center;
-    user-select:none; -webkit-tap-highlight-color: transparent; min-width:80px;
-  }
-  .btn:active{ transform:translateY(1px); opacity:.9; }
-  .btn.secondary{ background:#0f1730; }
-  .btn.warn{ background:#2a1030; border-color:#432a59; }
-  
-  /* Модальное окно миссий */
-  .mission-modal{
-    position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000;
-    display:none; align-items:center; justify-content:center;
-    padding:20px;
-  }
-  .mission-grid{
-    background:#0f1730; border:1px solid #1e2747; border-radius:16px;
-    padding:20px; max-width:400px; width:100%;
-    max-height:80vh; overflow-y:auto;
-  }
-  .mission-title{
-    color:#e7f3ff; font-size:18px; font-weight:700; text-align:center;
-    margin-bottom:20px;
-  }
-  .mission-list{
-    display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
-    gap:12px;
-  }
-  .mission-item{
-    background:#162041; border:2px solid #1e2747; border-radius:12px;
-    padding:12px; text-align:center; cursor:pointer;
-    transition:all 0.2s; user-select:none;
-  }
-  .mission-item:hover{ border-color:#5cc8ff; background:#1a2a5a; }
-  .mission-item.active{ border-color:#5cc8ff; background:#1a2a5a; }
-  .mission-item .icon{ font-size:24px; margin-bottom:8px; }
-  .mission-item .name{ color:#e7f3ff; font-size:14px; font-weight:600; margin-bottom:4px; }
-  .mission-item .desc{ color:#8ba3c7; font-size:12px; }
-  .mission-close{
-    position:absolute; top:10px; right:10px; color:#e7f3ff;
-    font-size:24px; cursor:pointer; padding:10px;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Catch the Coin · Mini App</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #030712;
+      --panel: #0e1528;
+      --accent: #2cf3b8;
+      --accent-2: #5cc8ff;
+      --muted: #93a6c7;
+      --text: #eef5ff;
+      --danger: #ff7c9f;
+      --shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 28%, rgba(92, 200, 255, 0.15), transparent 35%),
+        radial-gradient(circle at 78% 12%, rgba(44, 243, 184, 0.12), transparent 42%),
+        var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .app {
+      width: min(560px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    header {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: var(--shadow);
+    }
+    .title { font-weight: 800; letter-spacing: 0.2px; }
+    .tag {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(135deg, rgba(44, 243, 184, 0.18), rgba(92, 200, 255, 0.18));
+      color: #0b1a1d;
+      font-weight: 700;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .board {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 9 / 16;
+      background: #060c1a;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+    }
+    .pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text);
+      letter-spacing: 0.2px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 10px;
+      font-weight: 700;
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: transform 0.08s ease, border-color 0.2s ease, opacity 0.2s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active { transform: translateY(1px) scale(0.99); }
+    button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #041016; }
+    button.danger { border-color: rgba(255, 124, 159, 0.45); color: var(--danger); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .tip {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+    .promo {
+      background: linear-gradient(135deg, rgba(44, 243, 184, 0.2), rgba(92, 200, 255, 0.2));
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      box-shadow: var(--shadow);
+    }
+    .promo.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .promo-code {
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      background: rgba(255, 255, 255, 0.12);
+      padding: 8px 10px;
+      border-radius: 10px;
+      letter-spacing: 1px;
+    }
+    @media (max-width: 520px) {
+      body { padding: 12px; }
+      header { flex-direction: column; align-items: flex-start; }
+      .title { font-size: 16px; }
+      .tag { width: 100%; text-align: center; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .controls button.full { grid-column: span 2; }
+    }
+  </style>
 </head>
 <body>
-<div id="wrap">
-  <canvas id="game"></canvas>
-</div>
-<div class="hud">Монеты: <span id="coins">0</span></div>
-<div class="controls">
-  <div class="btn" id="btnRestart">⟲ Рестарт</div>
-  <div class="btn secondary" id="btnPause">⏸ Пауза</div>
-  <div class="btn warn" id="btnColor">🎨 Цвет кота</div>
-  <div class="btn" id="btnMission">🎯 Миссии</div>
-</div>
+  <div class="app">
+    <header>
+      <div class="title">Catch the Coin — Мини-игра</div>
+      <div class="tag">Собери 10 USDT</div>
+    </header>
 
-<!-- Модальное окно выбора миссий -->
-<div class="mission-modal" id="missionModal">
-  <div class="mission-grid">
-    <div class="mission-close" id="missionClose">×</div>
-    <div class="mission-title">Выберите миссию</div>
-    <div class="mission-list" id="missionList">
-      <!-- Миссии будут добавлены через JavaScript -->
+    <div class="board">
+      <div class="hud">
+        <div class="pill"><span>Монеты</span><span id="score">0 / 10</span></div>
+        <div class="pill"><span>Серия</span><span id="streak">0x</span></div>
+        <div class="pill"><span>Статус</span><span id="status">Готовы?</span></div>
+      </div>
+
+      <canvas id="game" width="360" height="640" aria-label="Игровое поле"></canvas>
+      <div class="tip">Свайпайте или нажимайте стрелки, чтобы двигать кошелёк. Поймайте 10 монет.</div>
+
+      <div class="controls">
+        <button id="left">◀︎ Влево</button>
+        <button id="right">Вправо ▶︎</button>
+        <button id="restart" class="danger full">↺ Рестарт</button>
+        <button id="pause" class="full">⏯ Пауза / Продолжить</button>
+      </div>
+    </div>
+
+    <div class="promo" id="promo">
+      <div>
+        <div style="font-weight:800; margin-bottom:4px;">Промокод за 10 монет</div>
+        <div class="promo-code" id="promoCode">COIN-USDT-2024</div>
+      </div>
+      <button class="primary" id="copy">Скопировать</button>
     </div>
   </div>
-</div>
 
-<script>
-/* ===== Telegram WebApp glue (no backend) ===== */
-const tg = window.Telegram?.WebApp;
-try { tg?.ready(); tg?.expand(); tg?.BackButton?.hide(); } catch(e){}
-function updateMainButton(coins, alive){
-  if (!tg) return;
-  // Убираем кнопку "Отправить результат"
-  tg.MainButton.hide();
-}
-function bindMainButton(getCoins, getAlive){
-  if (!tg) return;
-  // Убираем обработчик кнопки "Отправить результат"
-}
-</script>
+  <script>
+    // Настройки холста под разные плотности пикселей
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
 
-<script>
-(() => {
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d', { alpha:true });
-  let DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const ui = {
+      score: document.getElementById('score'),
+      streak: document.getElementById('streak'),
+      status: document.getElementById('status'),
+      promo: document.getElementById('promo'),
+      promoCode: document.getElementById('promoCode'),
+      copy: document.getElementById('copy'),
+    };
 
-  // ==== адаптивные константы (масштаб от высоты экрана)
-  let S = 1; // scale
-  let GROUND_Y = 420;
-  let GRAVITY = 1.4, JUMP_VELOCITY = -20;
-  let START_SPEED = 2, SPEEDUP = 0.0001;
-  const SPAWN_COOLDOWN = { coin: 2000, enemy: 3000 };
-  
-  // Функция получения текущих настроек спавна
-  function getCurrentSpawnCooldown() {
-    const mission = MISSIONS[currentMission];
-    if (mission.type === "survive") {
-      return { coin: 3000, enemy: 999999 }; // В миссии выживания враги не появляются дополнительно
+    const controls = {
+      left: document.getElementById('left'),
+      right: document.getElementById('right'),
+      restart: document.getElementById('restart'),
+      pause: document.getElementById('pause'),
+    };
+
+    const world = { width: 360, height: 640 };
+    let dpr = window.devicePixelRatio || 1;
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      world.width = rect.width;
+      world.height = rect.height;
+      state.basket.x = Math.min(Math.max(state.basket.w / 2, state.basket.x), world.width - state.basket.w / 2);
     }
-    return SPAWN_COOLDOWN;
-  }
-  const WORLD = { speed: START_SPEED, t: 0 };
-  
-  // Миссии и прогресс
-  const MISSION_TIME = 120000; // 2 минуты
-  let missionProgress = 0;
-  let missionStartTime = 0;
-  let currentMission = 0;
-  
-  const MISSIONS = [
-    {
-      id: 0,
-      name: "Время идёт",
-      description: "Продержись 2 минуты",
-      type: "time",
-      target: 120000,
-      progress: 0,
-      icon: "⏱️"
-    },
-    {
-      id: 1,
-      name: "Собери USDT",
-      description: "Собери 5 USDT токенов",
-      type: "collect",
-      target: 5,
-      targetCoin: "USDT",
-      progress: 0,
-      icon: "💎"
-    },
-    {
-      id: 2,
-      name: "Избеги врагов",
-      description: "Продержись 2 минуты без столкновений",
-      type: "survive",
-      target: 120000,
-      progress: 0,
-      icon: "🛡️"
-    },
-    {
-      id: 3,
-      name: "Только прыжки",
-      description: "Собери 8 монет, не стой на земле дольше 2с",
-      type: "jump",
-      target: 8,
-      progress: 0,
-      icon: "🦘"
-    },
-    {
-      id: 4,
-      name: "Гонка за бонусом",
-      description: "Догони золотую монету за 90 секунд",
-      type: "chase",
-      target: 90000,
-      progress: 0,
-      icon: "🏃"
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Состояние игры
+    const state = {
+      playing: true,
+      coins: [],
+      basket: { x: 180, y: 600, w: 90, h: 20, speed: 340 },
+      score: 0,
+      streak: 0,
+      target: 10,
+      spawnTimer: 0,
+      spawnRate: 1.05,
+      lastTime: performance.now(),
+      pointerX: null,
+    };
+
+    function resetGame() {
+      state.playing = true;
+      state.coins.length = 0;
+      state.score = 0;
+      state.streak = 0;
+      state.spawnTimer = 0;
+      state.spawnRate = 1.05;
+      state.basket.x = world.width / 2;
+      state.lastTime = performance.now();
+      ui.status.textContent = 'Играем';
+      ui.promo.classList.remove('visible');
+      updatePauseLabel();
+      updateHud();
     }
-  ];
 
-  const coinsEl = document.getElementById('coins');
-  const btnRestart = document.getElementById('btnRestart');
-  const btnPause   = document.getElementById('btnPause');
-  const btnColor   = document.getElementById('btnColor');
-  const btnMission = document.getElementById('btnMission');
-  const missionModal = document.getElementById('missionModal');
-  const missionList = document.getElementById('missionList');
-  const missionClose = document.getElementById('missionClose');
-
-  let coins = 0, alive = true, paused = false, missionActive = false;
-  let groundTime = 0; // Время на земле для миссии прыжков
-
-  // Кот Pico Park
-  let CELL = 6;
-  let CAT_W = 8*CELL, CAT_H = 9*CELL;
-  const CAT_MAP = [
-    [1,1,0,0,0,0,1,1],
-    [1,1,1,1,1,1,1,1],
-    [1,1,2,1,1,2,1,1],
-    [1,1,1,1,1,1,1,1],
-    [0,1,1,1,1,1,1,0],
-    [0,0,1,1,1,1,0,0],
-    [0,0,0,3,3,0,0,0],
-    [0,0,1,0,0,1,0,0],
-    [0,0,1,0,0,1,0,0],
-  ];
-  const CAT_COLORS = ['#f4a261','#5bb6ff','#ff9bb0','#ffd166','#8fff8b','#bba0ff'];
-  let catColorIndex = 0;
-
-  const player = { kind:'player', x:80, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true, vx:0 };
-  const objects = { coins: [], enemies: [], particles: [], platforms: [], bonus: null };
-  let lastSpawn = { coin: 0, enemy: 0 };
-
-  // === helpers
-  const rand = (a,b)=>Math.random()*(b-a)+a;
-  const getRect = e => (e.kind==='player'||e.kind==='enemy')
-    ? {x:e.x, y:e.y - e.h, w:e.w, h:e.h}
-    : {x:e.x, y:e.y, w:e.w, h:e.h};
-  function aabb(A,B){ const a=getRect(A), b=getRect(B);
-    return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
-
-  function resize(){
-    DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-    canvas.width  = Math.floor(window.innerWidth * DPR);
-    canvas.height = Math.floor(window.innerHeight * DPR);
-    canvas.style.width  = '100vw';
-    canvas.style.height = '100vh';
-    ctx.setTransform(DPR,0,0,DPR,0,0); // логические пиксели
-
-    // масштаб от базовой высоты 540
-    S = window.innerHeight / 540;
-    // Пересчёт размеров/физики
-    GROUND_Y      = Math.round(420 * S);
-    GRAVITY       = 1.4 * S;
-    JUMP_VELOCITY = -20 * S;
-    START_SPEED   = 6 * S;
-    SPEEDUP       = 0.0009 * S;
-    WORLD.speed   = Math.max(WORLD.speed, START_SPEED);
-
-    CELL = Math.round(6 * S);
-    CAT_W = 8*CELL; CAT_H = 9*CELL;
-    player.w = CAT_W; player.h = CAT_H;
-    player.x = Math.round(80 * S);
-    player.y = GROUND_Y;
-  }
-
-  function reset(){
-    coins=0; coinsEl.textContent=coins; updateMainButton(coins,true);
-    alive=true; paused=false; missionActive=true;
-    WORLD.speed=START_SPEED; WORLD.t=0;
-    missionProgress=0; missionStartTime=Date.now();
-    groundTime=0;
-    objects.coins.length=0; objects.enemies.length=0; objects.particles.length=0; objects.platforms.length=0;
-    Object.assign(player,{ x:Math.round(80*S), y:GROUND_Y, vy:0, onGround:true, vx:0 });
-    
-    // Сброс прогресса миссии
-    MISSIONS[currentMission].progress = 0;
-    
-    // Создаем начальное расположение врагов для миссии выживания
-    spawnInitialEnemies();
-    
-    // Создаем платформы для миссии прыжков
-    spawnJumpPlatforms();
-    
-    // Создаем убегающий бонус для миссии гонки
-    spawnChaseBonus();
-  }
-
-  // === background
-  function drawBackground(){
-    ctx.fillStyle='#081326'; ctx.fillRect(0,0,canvas.width/DPR,canvas.height/DPR);
-    ctx.globalAlpha=.5;
-    for(let i=0;i<120;i++){
-      const x=((i*83+WORLD.t*0.06)%(canvas.width/DPR+200))-100;
-      const y=(i*53)%Math.round(260*S)+10;
-      ctx.fillStyle='#5cc8ff'; ctx.fillRect(x,y,2,2);
+    function updatePauseLabel() {
+      controls.pause.textContent = state.playing ? '⏸ Пауза' : '▶️ Продолжить';
     }
-    ctx.globalAlpha=1;
-    ctx.fillStyle='#0b152f'; ctx.fillRect(0,GROUND_Y,canvas.width/DPR,canvas.height/DPR-GROUND_Y);
-    
-    // Добавляем линии горизонта для лучшей ориентации
-    ctx.strokeStyle='rgba(255,255,255,0.1)';
-    ctx.lineWidth=1;
-    for(let i=0;i<5;i++){
-      const y = GROUND_Y - (i+1) * Math.round(40*S);
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width/DPR, y);
-      ctx.stroke();
+
+    // Управление вводом
+    const input = { left: false, right: false };
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') input.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd') input.right = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') input.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd') input.right = false;
+    });
+
+    function bindButton(button, key) {
+      button.addEventListener('pointerdown', (e) => { e.preventDefault(); input[key] = true; });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach(type => button.addEventListener(type, () => { input[key] = false; }));
     }
-    
-    // Промо-билборды на заднем плане
-    drawPromoBillboards();
-  }
-  
-  // Промо-билборды
-  function drawPromoBillboards(){
-    const billboards = [
-      { x: 400, text: "🔥 НОВЫЕ КРИПТО", subtext: "Инвестируй умно" },
-      { x: 800, text: "💎 TON COIN", subtext: "Будущее блокчейна" },
-      { x: 1200, text: "🚀 ДЕФИ ПРОТОКОЛЫ", subtext: "Высокие APY" },
-      { x: 1600, text: "📱 TELEGRAM WALLET", subtext: "Безопасно и быстро" }
-    ];
-    
-    billboards.forEach(billboard => {
-      const screenX = billboard.x - WORLD.t * WORLD.speed * 0.1;
-      if (screenX > -200 && screenX < canvas.width/DPR + 200) {
-        // Фон билборда
-        ctx.fillStyle = 'rgba(15, 23, 48, 0.8)';
-        ctx.fillRect(screenX, GROUND_Y - 120*S, 180*S, 80*S);
-        
-        // Рамка
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(screenX, GROUND_Y - 120*S, 180*S, 80*S);
-        
-        // Текст
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.round(14*S)}px system-ui`;
-        ctx.textAlign = 'center';
-        ctx.fillText(billboard.text, screenX + 90*S, GROUND_Y - 95*S);
-        
-        ctx.fillStyle = '#5cc8ff';
-        ctx.font = `${Math.round(12*S)}px system-ui`;
-        ctx.fillText(billboard.subtext, screenX + 90*S, GROUND_Y - 75*S);
-        ctx.textAlign = 'left';
+    bindButton(controls.left, 'left');
+    bindButton(controls.right, 'right');
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      state.pointerX = (e.clientX - rect.left);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (state.pointerX === null) return;
+      const rect = canvas.getBoundingClientRect();
+      state.pointerX = (e.clientX - rect.left);
+    });
+    window.addEventListener('pointerup', () => state.pointerX = null);
+    window.addEventListener('pointercancel', () => state.pointerX = null);
+
+    controls.restart.addEventListener('click', () => resetGame());
+    controls.pause.addEventListener('click', () => {
+      state.playing = !state.playing;
+      ui.status.textContent = state.playing ? 'Играем' : 'Пауза';
+      updatePauseLabel();
+    });
+
+    ui.copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard?.writeText(ui.promoCode.textContent.trim());
+        ui.copy.textContent = 'Скопировано';
+        setTimeout(() => ui.copy.textContent = 'Скопировать', 1200);
+      } catch (err) {
+        ui.copy.textContent = 'Не удалось :(';
+        setTimeout(() => ui.copy.textContent = 'Скопировать', 1400);
       }
     });
-  }
 
-  // === draw cat
-  function drawPicoCat(){
-    const x0 = player.x, y0 = player.y - CAT_H;
-    const BODY = CAT_COLORS[catColorIndex], EYE='#000', TOOTH='#fff';
-    const px = player.w/8, py = player.h/9;
-
-    for(let r=0;r<CAT_MAP.length;r++)
-      for(let c=0;c<CAT_MAP[0].length;c++)
-        if(CAT_MAP[r][c]){ ctx.fillStyle='#111'; ctx.fillRect(x0+c*px-1, y0+r*py-1, px+2, py+2); }
-    for(let r=0;r<CAT_MAP.length;r++)
-      for(let c=0;c<CAT_MAP[0].length;c++){
-        const cell = CAT_MAP[r][c]; if(!cell) continue;
-        ctx.fillStyle=(cell===1)?BODY:(cell===2)?EYE:TOOTH;
-        ctx.fillRect(x0+c*px, y0+r*py, px, py);
-      }
-  }
-
-  // === enemies
-  function spawnEnemy(){
-    const w=Math.round(44*S), h=Math.round(32*S);
-    const mission = MISSIONS[currentMission];
-    
-    if (mission.type === "survive") {
-      // В миссии выживания враги появляются в случайных местах и преследуют игрока
-      const spawnX = rand(50*S, canvas.width/DPR - 50*S);
-      const spawnY = GROUND_Y - rand(50*S, 150*S);
-      objects.enemies.push({ 
-        kind:'enemy', 
-        x: spawnX, 
-        y: spawnY, 
-        w, h,
-        vx: 0,
-        vy: 0,
-        targetX: player.x,
-        targetY: player.y,
-        speed: rand(0.5*S, 1.5*S)
+    // Логика монет
+    function spawnCoin() {
+      const size = 18;
+      const speed = 130 + Math.random() * 60 + state.score * 5;
+      state.coins.push({
+        x: Math.random() * (world.width - size * 2) + size,
+        y: -size,
+        size,
+        vy: speed,
+        wobble: Math.random() * Math.PI * 2,
       });
-    } else {
-      // Обычные враги появляются справа
-      objects.enemies.push({ kind:'enemy', x:canvas.width/DPR+rand(200*S,300*S), y:GROUND_Y, w,h });
     }
-  }
-  
-  // Функция для создания начального расположения врагов в миссии выживания
-  function spawnInitialEnemies() {
-    const mission = MISSIONS[currentMission];
-    if (mission.type === "survive") {
-      // Очищаем существующих врагов
-      objects.enemies.length = 0;
-      
-      // Создаем только 3 врага, разбросанных по локации
-      const enemyCount = 3;
-      for (let i = 0; i < enemyCount; i++) {
-        const w = Math.round(44*S), h = Math.round(32*S);
-        
-        // Безопасная зона вокруг кота (150 пикселей)
-        const safeZone = 150*S;
-        let spawnX, spawnY;
-        let attempts = 0;
-        
-        do {
-          spawnX = rand(50*S, canvas.width/DPR - 50*S);
-          spawnY = GROUND_Y - rand(50*S, 200*S);
-          attempts++;
-          
-          // Проверяем расстояние до кота
-          const distanceToCat = Math.sqrt(
-            Math.pow(spawnX - player.x, 2) + 
-            Math.pow(spawnY - player.y, 2)
-          );
-          
-          // Если враг слишком близко к коту, пробуем снова
-          if (distanceToCat < safeZone) {
-            continue;
-          }
-          
-          // Проверяем расстояние до других врагов
-          let tooClose = false;
-          for (let j = 0; j < objects.enemies.length; j++) {
-            const existingEnemy = objects.enemies[j];
-            const distanceToEnemy = Math.sqrt(
-              Math.pow(spawnX - existingEnemy.x, 2) + 
-              Math.pow(spawnY - existingEnemy.y, 2)
-            );
-            if (distanceToEnemy < 120*S) {
-              tooClose = true;
-              break;
-            }
-          }
-          
-          if (!tooClose) break;
-          
-        } while (attempts < 50); // Максимум 50 попыток
-        
-        objects.enemies.push({ 
-          kind:'enemy', 
-          x: spawnX, 
-          y: spawnY, 
-          w, h,
-          vx: 0,
-          vy: 0,
-          targetX: player.x,
-          targetY: player.y,
-          speed: rand(0.8*S, 1.2*S),
-          active: false, // Враг неактивен изначально
-          activationDistance: 100*S // Дистанция активации
-        });
+
+    function update(dt) {
+      if (!state.playing) return;
+
+      // Ввод
+      let dir = 0;
+      if (input.left) dir -= 1;
+      if (input.right) dir += 1;
+      state.basket.x += dir * state.basket.speed * dt;
+
+      if (state.pointerX !== null) {
+        const target = state.pointerX;
+        const delta = target - state.basket.x;
+        state.basket.x += delta * 0.12;
       }
-    }
-  }
-  
-  // Функция для создания платформ в миссии прыжков
-  function spawnJumpPlatforms() {
-    const mission = MISSIONS[currentMission];
-    if (mission.type === "jump") {
-      // Очищаем существующие платформы
-      objects.platforms.length = 0;
-      
-      // Создаем 6-8 платформ разной высоты
-      const platformCount = Math.floor(rand(6, 8));
-      for (let i = 0; i < platformCount; i++) {
-        const platformW = Math.round(rand(60*S, 120*S));
-        const platformH = Math.round(12*S);
-        
-        let spawnX, spawnY;
-        let attempts = 0;
-        
-        do {
-          spawnX = rand(50*S, canvas.width/DPR - platformW - 50*S);
-          spawnY = GROUND_Y - rand(80*S, 300*S);
-          attempts++;
-          
-          // Проверяем расстояние до других платформ
-          let tooClose = false;
-          for (let j = 0; j < objects.platforms.length; j++) {
-            const existingPlatform = objects.platforms[j];
-            const distanceX = Math.abs(spawnX - existingPlatform.x);
-            const distanceY = Math.abs(spawnY - existingPlatform.y);
-            
-            if (distanceX < 100*S && distanceY < 80*S) {
-              tooClose = true;
-              break;
-            }
-          }
-          
-          if (!tooClose) break;
-          
-        } while (attempts < 30);
-        
-        objects.platforms.push({
-          kind: 'platform',
-          x: spawnX,
-          y: spawnY,
-          w: platformW,
-          h: platformH
-        });
-      }
-    }
-  }
-  
-  // Функция для создания убегающего бонуса
-  function spawnChaseBonus() {
-    const mission = MISSIONS[currentMission];
-    if (mission.type === "chase") {
-      // Создаем золотую монету, которая убегает
-      objects.bonus = {
-        kind: 'bonus',
-        x: canvas.width/DPR + 200*S,
-        y: GROUND_Y - rand(50*S, 150*S),
-        w: Math.round(32*S),
-        h: Math.round(32*S),
-        speed: WORLD.speed * 1.2, // Движется быстрее игрока
-        spin: rand(0, 1000),
-        shimmer: rand(0, 1000),
-        caught: false
-      };
-    }
-  }
-  function drawEnemy(e){
-    const top = e.y - e.h;
-    const mission = MISSIONS[currentMission];
-    
-    // Добавляем тень для лучшей видимости
-    ctx.fillStyle='rgba(255,0,0,0.3)'; 
-    ctx.fillRect(e.x-2, top-2, e.w+4, e.h+4);
-    
-    // Основной блок врага
-    if (mission.type === "survive" && !e.active) {
-      // Неактивные враги выглядят тусклее
-      ctx.fillStyle='#666666'; 
-    } else {
-      ctx.fillStyle='#ff6666'; 
-    }
-    ctx.fillRect(e.x, top, e.w, e.h);
-    
-    // Добавляем блик для объёма
-    ctx.fillStyle='rgba(255,255,255,0.3)'; 
-    ctx.fillRect(e.x+2, top+2, e.w-4, 4);
-    
-    // Глаз врага
-    ctx.fillStyle='#3a0f0f'; 
-    ctx.fillRect(e.x+e.w/2-3, top+Math.round(8*S), 6, 6);
-    
-    // Добавляем свечение
-    if (mission.type === "survive") {
-      if (e.active) {
-        // Активные враги - красное свечение
-        ctx.globalAlpha = 0.4;
-        ctx.fillStyle='#ff0000'; 
-        ctx.fillRect(e.x-8, top-8, e.w+16, e.h+16);
-      } else {
-        // Неактивные враги - серое свечение
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle='#666666'; 
-        ctx.fillRect(e.x-8, top-8, e.w+16, e.h+16);
-      }
-      ctx.globalAlpha = 1;
-    } else if (e.x < canvas.width/DPR + 100*S) {
-      ctx.globalAlpha = 0.4 * (1 - (e.x - canvas.width/DPR) / (100*S));
-      ctx.fillStyle='#ff0000'; 
-      ctx.fillRect(e.x-10, top-10, e.w+20, e.h+20);
-      ctx.globalAlpha = 1;
-    }
-  }
+      const half = state.basket.w / 2;
+      state.basket.x = Math.max(half, Math.min(world.width - half, state.basket.x));
 
-  // === coins
-  const COIN_SKINS = ['USDT','BTC','TON'];
-  function spawnCoin(){
-    const r=Math.round(16*S), top=GROUND_Y - Math.round(80*S) - Math.random()*Math.round(110*S);
-    const mission = MISSIONS[currentMission];
-    
-    // Для миссии сбора токенов - больше шанс появления нужного токена
-    let skin;
-    if (mission.type === "collect" && Math.random() < 0.7) {
-      skin = mission.targetCoin;
-    } else {
-      skin = COIN_SKINS[Math.floor(Math.random()*COIN_SKINS.length)];
-    }
-    
-    let spawnX;
-    if (mission.type === "survive") {
-      // В миссии выживания монеты появляются в случайных местах на экране
-      spawnX = rand(50*S, canvas.width/DPR - 50*S);
-    } else {
-      // В обычных миссиях монеты появляются справа
-      spawnX = canvas.width/DPR + rand(0, 120*S);
-    }
-    
-    objects.coins.push({ kind:'coin', x:spawnX, y:top, w:r*2, h:r*2, r,
-      skin, spin:rand(0,1000), shimmer:rand(0,1000) });
-  }
-  function coinPalette(s){
-    switch(s){
-      case 'USDT': return { inner:'#22ffcc', outer:'#008f73', logo:'#ffffff' };
-      case 'BTC':  return { inner:'#ffb347', outer:'#d78100', logo:'#1a1a1a' };
-      case 'TON':  return { inner:'#53b6ff', outer:'#0b6ed1', logo:'#ffffff' };
-      default:     return { inner:'#ffd94d', outer:'#b88400', logo:'#ffffff' };
-    }
-  }
-  function drawCoinLogo(s){
-    switch(s){
-      case 'USDT':
-        ctx.fillRect(-12*S,-2*S,24*S,4*S); ctx.fillRect(-3*S,-2*S,6*S,16*S); ctx.clearRect(-9*S,6*S,18*S,4*S); break;
-      case 'BTC':
-        ctx.fillRect(-3*S,-12*S,6*S,24*S);
-        ctx.beginPath(); ctx.arc(0,-6*S,8*S,Math.PI*0.9,Math.PI*0.1,false);
-        ctx.arc(0, 6*S,8*S,Math.PI*0.9,Math.PI*0.1,false); ctx.fill(); break;
-      case 'TON':
-        ctx.beginPath(); ctx.moveTo(0,-10*S); ctx.lineTo(10*S,0); ctx.lineTo(0,12*S); ctx.lineTo(-10*S,0); ctx.closePath();
-        ctx.strokeStyle=ctx.fillStyle; ctx.stroke(); break;
-    }
-  }
-  function drawCoin(c){
-    const {x,y,r,skin}=c, pal=coinPalette(skin);
-    const squash=0.12*Math.sin((WORLD.t+c.spin)*0.01);
-    ctx.save(); ctx.translate(x+r, y+r); ctx.scale(1+squash,1-squash);
-    ctx.rotate(((WORLD.t+c.spin)*0.006)%(Math.PI*2));
-    const g=ctx.createRadialGradient(0,0,r*0.25,0,0,r); g.addColorStop(0,pal.inner); g.addColorStop(1,pal.outer);
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,r-1.5,0,Math.PI*2); ctx.stroke();
-    ctx.save(); ctx.rotate(Math.PI*0.25);
-    ctx.globalAlpha=0.25+0.35*((Math.sin((WORLD.t+c.shimmer)*0.008)+1)/2);
-    const grd=ctx.createLinearGradient(-r,-r,r,r);
-    grd.addColorStop(0,'rgba(255,255,255,0)'); grd.addColorStop(0.5,'rgba(255,255,255,0.8)'); grd.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=grd; ctx.fillRect(-r,-r,r*2,r*2); ctx.restore();
-    ctx.fillStyle=pal.logo; ctx.strokeStyle=pal.logo; drawCoinLogo(skin);
-    ctx.restore();
-    }
-  
-  // === platforms
-  function drawPlatform(p) {
-    // Фон платформы
-    ctx.fillStyle = '#2a4a7a';
-    ctx.fillRect(p.x, p.y, p.w, p.h);
-    
-    // Рамка платформы
-    ctx.strokeStyle = '#4a6a9a';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(p.x, p.y, p.w, p.h);
-    
-    // Блики на платформе
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.fillRect(p.x + 2, p.y + 2, p.w - 4, 3);
-  }
-  
-  // === bonus
-  function drawBonus(b) {
-    if (b.caught) return;
-    
-    const x = b.x, y = b.y, r = b.w/2;
-    
-    ctx.save();
-    ctx.translate(x + r, y + r);
-    ctx.rotate(((WORLD.t + b.spin) * 0.01) % (Math.PI * 2));
-    
-    // Золотой градиент
-    const g = ctx.createRadialGradient(0, 0, r*0.25, 0, 0, r);
-    g.addColorStop(0, '#ffd700');
-    g.addColorStop(1, '#ff8c00');
-    
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Блики
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(0, 0, r-1.5, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    // Анимация мерцания
-    ctx.globalAlpha = 0.6 + 0.4 * ((Math.sin((WORLD.t + b.shimmer) * 0.01) + 1) / 2);
-    const grd = ctx.createLinearGradient(-r, -r, r, r);
-    grd.addColorStop(0, 'rgba(255,255,255,0)');
-    grd.addColorStop(0.5, 'rgba(255,255,255,0.9)');
-    grd.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = grd;
-    ctx.fillRect(-r, -r, r*2, r*2);
-    
-    ctx.restore();
-  }
-  
-  // === particles (лаконично)
-  function spawnBurst(x,y,color,count=8){
-    for(let i=0;i<count;i++)
-      objects.particles.push({x,y,vx:rand(-2*S,2*S),vy:rand(-3*S,-1*S),t:0,life:rand(300,700),color});
-  }
-  function drawParticles(dt){
-    for(let i=objects.particles.length-1;i>=0;i--){
-      const p=objects.particles[i];
-      p.t+=dt; p.x+=p.vx; p.y+=p.vy; p.vy+=0.08*S;
-      const a=Math.max(0,1-p.t/p.life);
-      if(a<=0){ objects.particles.splice(i,1); continue; }
-      ctx.globalAlpha=a; ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,3,3); ctx.globalAlpha=1;
-    }
-  }
-
-  // === input
-  const jump = ()=>{ if(alive && player.onGround){ player.vy=JUMP_VELOCITY; player.onGround=false; } };
-  
-        // Обработка тапов для движения влево/вправо в миссии выживания и прыжков
-      canvas.addEventListener('pointerdown', (e) => {
-        if (!alive) return;
-        
-        const mission = MISSIONS[currentMission];
-        if (mission.type === "survive" || mission.type === "jump" || mission.type === "chase") {
-          // Определяем сторону тапа
-          const tapX = e.clientX;
-          const screenCenter = window.innerWidth / 2;
-          
-          if (tapX < screenCenter) {
-            // Тап слева - движение влево
-            player.vx = -3 * S;
-          } else {
-            // Тап справа - движение вправо
-            player.vx = 3 * S;
-          }
-          
-          // Сбрасываем горизонтальную скорость через короткое время
-          setTimeout(() => { player.vx = 0; }, 200);
-        } else {
-          // Обычный прыжок для других миссий
-          jump();
-        }
-      }, { passive:true });
-  document.addEventListener('keydown', e=>{
-    if(e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); jump(); }
-    if(e.code==='KeyR') reset();
-    if(e.code==='KeyP') { paused=!paused; btnPause.textContent = paused ? '▶ Продолжить' : '⏸ Пауза'; }
-    if(e.code==='KeyK') { catColorIndex=(catColorIndex+1)%CAT_COLORS.length; }
-  });
-
-  // === bottom buttons
-  // Функция отображения миссий
-  function showMissionModal() {
-    missionList.innerHTML = '';
-    MISSIONS.forEach((mission, index) => {
-      const item = document.createElement('div');
-      item.className = `mission-item ${index === currentMission ? 'active' : ''}`;
-      item.innerHTML = `
-        <div class="icon">${mission.icon}</div>
-        <div class="name">${mission.name}</div>
-        <div class="desc">${mission.description}</div>
-      `;
-      item.onclick = () => {
-        currentMission = index;
-        reset();
-        hideMissionModal();
-      };
-      missionList.appendChild(item);
-    });
-    missionModal.style.display = 'flex';
-  }
-  
-  function hideMissionModal() {
-    missionModal.style.display = 'none';
-  }
-  
-  btnRestart.onclick = ()=>{ reset(); };
-  btnPause.onclick   = ()=>{ paused=!paused; btnPause.textContent = paused ? '▶ Продолжить' : '⏸ Пауза'; };
-  btnColor.onclick   = ()=>{ catColorIndex=(catColorIndex+1)%CAT_COLORS.length; };
-  btnMission.onclick = showMissionModal;
-  missionClose.onclick = hideMissionModal;
-  
-  // Закрытие по клику вне модального окна
-  missionModal.onclick = (e) => {
-    if (e.target === missionModal) hideMissionModal();
-  };
-
-  // === loop
-  let last = performance.now();
-  function loop(now){
-    const dt = now - last; last = now;
-
-    if(!paused && alive){
-      const mission = MISSIONS[currentMission];
-      
-      if (mission.type === "survive") {
-        // В миссии выживания время идет, но мир не движется
-        WORLD.t += dt;
-        // Скорость мира остается постоянной для анимации фона
-        WORLD.speed = START_SPEED;
-      } else {
-        // Обычные миссии - мир движется
-        WORLD.t += dt;
-        WORLD.speed += SPEEDUP * dt;
+      // Появление монет
+      state.spawnTimer -= dt;
+      if (state.spawnTimer <= 0) {
+        spawnCoin();
+        state.spawnRate = Math.max(0.6, state.spawnRate - 0.012);
+        state.spawnTimer = state.spawnRate;
       }
 
-      const currentCooldown = getCurrentSpawnCooldown();
-      if(now - lastSpawn.coin  > currentCooldown.coin)  { spawnCoin();  lastSpawn.coin=now; }
-      
-      // В миссии выживания враги не появляются дополнительно
-      if(mission.type !== "survive" && now - lastSpawn.enemy > currentCooldown.enemy) { 
-        spawnEnemy(); 
-        lastSpawn.enemy=now; 
-      }
+      // Движение монет
+      for (let i = state.coins.length - 1; i >= 0; i--) {
+        const c = state.coins[i];
+        c.wobble += dt * 4;
+        c.x += Math.sin(c.wobble) * 14 * dt;
+        c.y += c.vy * dt;
 
-      player.vy += GRAVITY; player.y += player.vy;
-      
-      // Проверка коллизий с платформами
-      if (mission.type === "jump") {
-        player.onGround = false;
-        for (let i = 0; i < objects.platforms.length; i++) {
-          const platform = objects.platforms[i];
-          if (player.x < platform.x + platform.w && 
-              player.x + player.w > platform.x &&
-              player.y + player.h >= platform.y &&
-              player.y + player.h <= platform.y + platform.h + 5) {
-            player.y = platform.y - player.h;
-            player.vy = 0;
-            player.onGround = true;
-            break;
-          }
-        }
-        
-        // Проверка земли
-        if (player.y >= GROUND_Y) {
-          player.y = GROUND_Y;
-          player.vy = 0;
-          player.onGround = true;
-        }
-      } else {
-        // Обычная проверка земли для других миссий
-        if(player.y >= GROUND_Y){ player.y=GROUND_Y; player.vy=0; player.onGround=true; }
-      }
-      
-      // Горизонтальное движение игрока
-      player.x += player.vx;
-      
-      // Ограничения движения игрока
-      const minX = 20*S;
-      const maxX = canvas.width/DPR - player.w - 20*S;
-      if (player.x < minX) player.x = minX;
-      if (player.x > maxX) player.x = maxX;
-      
-      // Обработка убегающего бонуса
-      if (mission.type === "chase" && objects.bonus && !objects.bonus.caught) {
-        // Бонус движется влево быстрее игрока
-        objects.bonus.x -= objects.bonus.speed;
-        
-        // Проверка столкновения с бонусом
-        if (aabb(objects.bonus, player)) {
-          objects.bonus.caught = true;
-          mission.progress = 1; // Миссия выполнена
-          spawnBurst(objects.bonus.x + objects.bonus.w/2, objects.bonus.y + objects.bonus.h/2, '#ffd700', 20);
-        }
-        
-        // Если бонус ушел за левый край экрана - миссия провалена
-        if (objects.bonus.x + objects.bonus.w < -50*S) {
-          alive = false;
-          missionActive = false;
-          updateMainButton(coins, alive);
-        }
-      }
-      
-      // Отслеживание времени на земле для миссии прыжков
-      if (mission.type === "jump") {
-        if (player.onGround) {
-          groundTime += dt;
-          if (groundTime > 2000) { // 2 секунды
-            alive = false;
-            missionActive = false;
-            updateMainButton(coins, alive);
-            // Добавляем эффект при провале миссии
-            spawnBurst(player.x + player.w/2, player.y - player.h/2, '#ff6666', 15);
-          }
-        } else {
-          groundTime = 0;
-        }
-      }
+        // Столкновение с корзиной
+        const caught =
+          c.y + c.size >= state.basket.y - state.basket.h / 2 &&
+          c.y - c.size <= state.basket.y + state.basket.h / 2 &&
+          Math.abs(c.x - state.basket.x) <= half + c.size * 0.6;
 
-      for(let i=objects.coins.length-1;i>=0;i--){
-        const c=objects.coins[i];
-        
-        if (mission.type === "survive") {
-          // В миссии выживания монеты не движутся
-          // Они остаются на месте для сбора
-        } else {
-          // В обычных миссиях монеты движутся влево
-          c.x -= WORLD.speed;
+        if (caught) {
+          state.coins.splice(i, 1);
+          state.score += 1;
+          state.streak = Math.min(state.streak + 1, 999);
+          ui.status.textContent = 'Поймали монетку!';
+          updateHud();
+          if (state.score >= state.target) {
+            unlockPromo();
+          }
+          continue;
         }
-        
-        if(aabb(c,player)){
-          coins++; coinsEl.textContent=coins; updateMainButton(coins, alive);
-          
-          // Обновляем прогресс миссии сбора токенов
-          if (MISSIONS[currentMission].type === "collect" && c.skin === MISSIONS[currentMission].targetCoin) {
-            MISSIONS[currentMission].progress++;
-          }
-          
-          // Обновляем прогресс миссии прыжков
-          if (MISSIONS[currentMission].type === "jump") {
-            MISSIONS[currentMission].progress++;
-          }
-          
-          spawnBurst(c.x+c.r, c.y+c.r, 'rgba(255,255,255,.9)', 10);
-          objects.coins.splice(i,1);
-        } else if(c.x + c.w < -10 && mission.type !== "survive" && mission.type !== "chase") objects.coins.splice(i,1);
-      }
-      for(let i=objects.enemies.length-1;i>=0;i--){
-        const e=objects.enemies[i];
-        const mission = MISSIONS[currentMission];
-        
-        if (mission.type === "survive") {
-          // В миссии выживания враги активируются при приближении
-          const dx = player.x - e.x;
-          const dy = player.y - e.y;
-          const distance = Math.sqrt(dx*dx + dy*dy);
-          
-          // Проверяем активацию врага
-          if (!e.active && distance < e.activationDistance) {
-            e.active = true;
-          }
-          
-          // Движение только если враг активен
-          if (e.active) {
-            if (distance > 0) {
-              // Нормализованное направление к игроку
-              e.vx = (dx / distance) * e.speed;
-              e.vy = (dy / distance) * e.speed;
-            }
-            
-            // Обновление позиции врага
-            e.x += e.vx;
-            e.y += e.vy;
-          }
-          
-          // Удаляем врагов, которые ушли за пределы экрана
-          if (e.x < -50*S || e.x > canvas.width/DPR + 50*S || 
-              e.y < -50*S || e.y > canvas.height/DPR + 50*S) {
-            objects.enemies.splice(i,1);
-            continue;
-          }
-        } else {
-          // Обычное движение врагов влево
-          e.x -= WORLD.speed*1.05;
+
+        // Потеря монеты
+        if (c.y - c.size > world.height) {
+          state.coins.splice(i, 1);
+          state.streak = 0;
+          ui.status.textContent = 'Уронили монету';
+          updateHud();
         }
-        
-        if(aabb(e,player)){ 
-          alive=false; 
-          missionActive = false;
-          updateMainButton(coins, alive); 
-          // Добавляем эффект при столкновении
-          spawnBurst(player.x + player.w/2, player.y - player.h/2, '#ff6666', 15);
-        }
-        else if(e.x + e.w < -10 && mission.type !== "survive" && mission.type !== "chase") objects.enemies.splice(i,1);
       }
     }
 
-    // render
-    ctx.clearRect(0,0,canvas.width/DPR,canvas.height/DPR);
-    drawBackground();
-    objects.coins.forEach(drawCoin);
-    objects.enemies.forEach(drawEnemy);
-    objects.platforms.forEach(drawPlatform);
-    if (objects.bonus) drawBonus(objects.bonus);
-    drawParticles(dt);
-    drawPicoCat();
+    function draw() {
+      ctx.clearRect(0, 0, world.width, world.height);
 
-    // Прогресс-бар миссии
-    if (missionActive) {
-      const mission = MISSIONS[currentMission];
-      let progress = 0;
-      let displayText = "";
-      
-      if (mission.type === "time") {
-        progress = Math.min(1, (Date.now() - missionStartTime) / mission.target);
-        const timeLeft = Math.max(0, Math.ceil((mission.target - (Date.now() - missionStartTime)) / 1000));
-        displayText = `${timeLeft}с`;
-        
-        // Проверка завершения миссии времени
-        if (progress >= 1) {
-          missionActive = false;
-          alive = false;
-        }
-      } else if (mission.type === "collect") {
-        progress = Math.min(1, mission.progress / mission.target);
-        displayText = `${mission.progress}/${mission.target} ${mission.targetCoin}`;
-        
-        // Проверка завершения миссии сбора
-        if (mission.progress >= mission.target) {
-          missionActive = false;
-          alive = false;
-        }
-      } else if (mission.type === "survive") {
-        progress = Math.min(1, (Date.now() - missionStartTime) / mission.target);
-        const timeLeft = Math.max(0, Math.ceil((mission.target - (Date.now() - missionStartTime)) / 1000));
-        displayText = `${timeLeft}с`;
-        
-        // Проверка завершения миссии выживания
-        if (progress >= 1) {
-          missionActive = false;
-          alive = false;
-        }
-      } else if (mission.type === "jump") {
-        progress = Math.min(1, mission.progress / mission.target);
-        const timeOnGround = Math.max(0, Math.ceil((2000 - groundTime) / 1000));
-        displayText = `${mission.progress}/${mission.target} монет (${timeOnGround}с на земле)`;
-        
-        // Проверка завершения миссии прыжков
-        if (mission.progress >= mission.target) {
-          missionActive = false;
-          alive = false;
-        }
-        
-        // Проверка провала миссии (время на земле)
-        if (groundTime > 2000) {
-          missionActive = false;
-          alive = false;
-        }
-      } else if (mission.type === "chase") {
-        progress = Math.min(1, (Date.now() - missionStartTime) / mission.target);
-        const timeLeft = Math.max(0, Math.ceil((mission.target - (Date.now() - missionStartTime)) / 1000));
-        displayText = `${timeLeft}с - Догони золотую монету!`;
-        
-        // Проверка завершения миссии гонки
-        if (mission.progress >= 1) {
-          missionActive = false;
-          alive = false;
-        }
-        
-        // Проверка провала миссии (время истекло)
-        if (progress >= 1) {
-          missionActive = false;
-          alive = false;
-        }
+      // Сетка/фон
+      ctx.fillStyle = '#081025';
+      ctx.fillRect(0, 0, world.width, world.height);
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      for (let y = 0; y < world.height; y += 32) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(world.width, y + 0.5);
+        ctx.stroke();
       }
-      
-      const barWidth = canvas.width/DPR - 40*S;
-      const barHeight = 8*S;
-      const barY = canvas.height/DPR - 20*S;
-      
-      // Фон прогресс-бара
-      ctx.fillStyle = 'rgba(255,255,255,0.2)';
-      ctx.fillRect(20*S, barY, barWidth, barHeight);
-      
-      // Заполнение прогресса
-      ctx.fillStyle = '#5cc8ff';
-      ctx.fillRect(20*S, barY, barWidth * progress, barHeight);
-      
-      // Текст прогресса
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `${Math.round(12*S)}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.fillText(displayText, canvas.width/DPR/2, barY - 5*S);
-      ctx.textAlign = 'left';
+
+      // Корзина
+      drawBasket();
+      // Монеты
+      state.coins.forEach(drawCoin);
     }
-    
-    if(!alive){
-      const mission = MISSIONS[currentMission];
-      if (missionActive) {
-        ctx.fillStyle='#ffb3c0'; ctx.font=`${Math.round(18*S)}px system-ui, sans-serif`;
-        ctx.fillText('Игра окончена — Рестарт', Math.round(20*S), Math.round(40*S));
-      } else {
-        ctx.fillStyle='#5cc8ff'; ctx.font=`${Math.round(20*S)}px system-ui, sans-serif`;
-        ctx.fillText('Миссия завершена!', Math.round(20*S), Math.round(40*S));
-        ctx.fillStyle='#ffffff'; ctx.font=`${Math.round(16*S)}px system-ui, sans-serif`;
-        ctx.fillText(`Собрано монет: ${coins}`, Math.round(20*S), Math.round(65*S));
-        
-        // Показываем название миссии
-        ctx.fillStyle='#5cc8ff'; ctx.font=`${Math.round(14*S)}px system-ui, sans-serif`;
-        ctx.fillText(mission.name, Math.round(20*S), Math.round(85*S));
-      }
+
+    function drawBasket() {
+      const b = state.basket;
+      const x = b.x;
+      const y = world.height - 32;
+      b.y = y;
+      const w = b.w;
+      const h = b.h;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = '#0c1b33';
+      ctx.strokeStyle = '#5cc8ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(-w / 2, -h / 2, w, h, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
     }
+
+    function drawCoin(c) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      const radius = c.size;
+      const grad = ctx.createRadialGradient(-radius * 0.4, -radius * 0.4, radius * 0.2, 0, 0, radius);
+      grad.addColorStop(0, '#fffbe2');
+      grad.addColorStop(1, '#ffd54f');
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = '#c79c2d';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // USDT логотип из пиксельных полос
+      ctx.fillStyle = '#0b5b4f';
+      ctx.fillRect(-radius * 0.45, -radius * 0.08, radius * 0.9, radius * 0.18);
+      ctx.fillRect(-radius * 0.18, -radius * 0.55, radius * 0.36, radius * 1.1);
+      ctx.restore();
+    }
+
+    function unlockPromo() {
+      state.playing = false;
+      ui.status.textContent = 'Промокод разблокирован!';
+      ui.promo.classList.add('visible');
+      updatePauseLabel();
+    }
+
+    function updateHud() {
+      ui.score.textContent = `${state.score} / ${state.target}`;
+      ui.streak.textContent = `${state.streak}x`;
+    }
+
+    function loop(now) {
+      const dt = Math.min((now - state.lastTime) / 1000, 0.05);
+      state.lastTime = now;
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    resizeCanvas();
+    resetGame();
     requestAnimationFrame(loop);
-  }
-
-  // init
-  window.addEventListener('resize', resize);
-  resize();
-  reset();
-  bindMainButton(()=>coins, ()=>alive);
-  requestAnimationFrame(t=>{ last=t; loop(t); });
-})();
-</script>
+  </script>
 </body>
 </html>

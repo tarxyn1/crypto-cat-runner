@@ -2,243 +2,486 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Crypto Cat Runner — WebApp</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Catch the Coin · Mini App</title>
   <style>
-    html,body{margin:0;background:#0b1020;color:#e7f3ff;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-    .hud{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:10px 8px;font-weight:600}
-    .pill{background:#0f1730;border:1px solid #1e2747;border-radius:999px;padding:6px 10px}
-    canvas{width:min(960px,95vw);height:auto;display:block;margin:8px auto 16px;background:#0a0f1e;
-           border:1px solid #1e2747;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.35);image-rendering:pixelated}
-    .row{display:flex;justify-content:center;gap:10px;margin:8px 0}
-    button{cursor:pointer;border:1px solid #1e2747;background:#162041;color:#e7f3ff;border-radius:10px;padding:8px 12px}
+    :root {
+      color-scheme: dark;
+      --bg: #030712;
+      --panel: #0e1528;
+      --accent: #2cf3b8;
+      --accent-2: #5cc8ff;
+      --muted: #93a6c7;
+      --text: #eef5ff;
+      --danger: #ff7c9f;
+      --shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 28%, rgba(92, 200, 255, 0.15), transparent 35%),
+        radial-gradient(circle at 78% 12%, rgba(44, 243, 184, 0.12), transparent 42%),
+        var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .app {
+      width: min(560px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    header {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: var(--shadow);
+    }
+    .title { font-weight: 800; letter-spacing: 0.2px; }
+    .tag {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(135deg, rgba(44, 243, 184, 0.18), rgba(92, 200, 255, 0.18));
+      color: #0b1a1d;
+      font-weight: 700;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .board {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 9 / 16;
+      background: #060c1a;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+    }
+    .pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text);
+      letter-spacing: 0.2px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 10px;
+      font-weight: 700;
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: transform 0.08s ease, border-color 0.2s ease, opacity 0.2s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active { transform: translateY(1px) scale(0.99); }
+    button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #041016; }
+    button.danger { border-color: rgba(255, 124, 159, 0.45); color: var(--danger); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .tip {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+    .promo {
+      background: linear-gradient(135deg, rgba(44, 243, 184, 0.2), rgba(92, 200, 255, 0.2));
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      box-shadow: var(--shadow);
+    }
+    .promo.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .promo-code {
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      background: rgba(255, 255, 255, 0.12);
+      padding: 8px 10px;
+      border-radius: 10px;
+      letter-spacing: 1px;
+    }
+    @media (max-width: 520px) {
+      body { padding: 12px; }
+      header { flex-direction: column; align-items: flex-start; }
+      .title { font-size: 16px; }
+      .tag { width: 100%; text-align: center; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .controls button.full { grid-column: span 2; }
+    }
   </style>
 </head>
 <body>
-  <div class="hud">
-    <div class="pill">↑/Space — прыжок • R — рестарт • P — пауза • K — смена цвета кота</div>
+  <div class="app">
+    <header>
+      <div class="title">Catch the Coin — Мини-игра</div>
+      <div class="tag">Собери 10 USDT</div>
+    </header>
+
+    <div class="board">
+      <div class="hud">
+        <div class="pill"><span>Монеты</span><span id="score">0 / 10</span></div>
+        <div class="pill"><span>Серия</span><span id="streak">0x</span></div>
+        <div class="pill"><span>Статус</span><span id="status">Готовы?</span></div>
+      </div>
+
+      <canvas id="game" width="360" height="640" aria-label="Игровое поле"></canvas>
+      <div class="tip">Свайпайте или нажимайте стрелки, чтобы двигать кошелёк. Поймайте 10 монет.</div>
+
+      <div class="controls">
+        <button id="left">◀︎ Влево</button>
+        <button id="right">Вправо ▶︎</button>
+        <button id="restart" class="danger full">↺ Рестарт</button>
+        <button id="pause" class="full">⏯ Пауза / Продолжить</button>
+      </div>
+    </div>
+
+    <div class="promo" id="promo">
+      <div>
+        <div style="font-weight:800; margin-bottom:4px;">Промокод за 10 монет</div>
+        <div class="promo-code" id="promoCode">COIN-USDT-2024</div>
+      </div>
+      <button class="primary" id="copy">Скопировать</button>
+    </div>
   </div>
-  <div class="row">
-    <button id="save">Сохранить рекорд</button>
-    <button id="best">Показать рекорд</button>
-  </div>
-  <canvas id="game" width="960" height="540"></canvas>
 
   <script>
-    // --- Telegram WebApp integration
-    const tg = window.Telegram && window.Telegram.WebApp;
-    let currentUser = null;
-    (async () => {
-      try {
-        tg && tg.ready();
-        tg && tg.expand();
-        const theme = tg?.themeParams || {};
-        // Validate initData on backend
-        if (tg?.initData) {
-          const res = await fetch('/api/validate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData: tg.initData })
-          });
-          const j = await res.json();
-          if (!j.ok) console.warn('initData invalid', j);
-          // parse user
-          const urlp = new URLSearchParams(tg.initData);
-          const userJSON = urlp.get('user');
-          if (userJSON) currentUser = JSON.parse(userJSON);
-        }
-      } catch (e) { console.warn(e); }
-    })();
-  </script>
-
-  <script>
-    // === GAME (shortened: Pico Park cat + coins + enemies)
+    // Настройки холста под разные плотности пикселей
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
 
-    const GROUND_Y = 420, GRAVITY = 0.9, JUMP_VELOCITY = -17;
-    const START_SPEED = 6, SPEEDUP = 0.0009;
-    const SPAWN_COOLDOWN = { coin: 1000, enemy: 1100 };
-    const WORLD = { speed: START_SPEED, t: 0 };
+    const ui = {
+      score: document.getElementById('score'),
+      streak: document.getElementById('streak'),
+      status: document.getElementById('status'),
+      promo: document.getElementById('promo'),
+      promoCode: document.getElementById('promoCode'),
+      copy: document.getElementById('copy'),
+    };
 
-    let coins = 0, alive = true, paused = false;
+    const controls = {
+      left: document.getElementById('left'),
+      right: document.getElementById('right'),
+      restart: document.getElementById('restart'),
+      pause: document.getElementById('pause'),
+    };
 
-    const CELL = 6;
-    const CAT_W = 8*CELL, CAT_H = 9*CELL;
-    const player = { kind:'player', x:150, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true };
+    // Состояние игры
+    const state = {
+      playing: true,
+      coins: [],
+      basket: { x: 180, y: 600, w: 90, h: 20, speed: 340 },
+      score: 0,
+      streak: 0,
+      target: 10,
+      spawnTimer: 0,
+      spawnRate: 1.05,
+      lastTime: performance.now(),
+      pointerX: null,
+    };
 
-    const objects = { coins: [], enemies: [], particles: [] };
-    let lastSpawn = { coin: 0, enemy: 0 };
+    const world = { width: 360, height: 640 };
+    let dpr = window.devicePixelRatio || 1;
 
-    const CAT_COLORS = ['#f4a261','#5bb6ff','#ff9bb0','#ffd166','#8fff8b','#bba0ff'];
-    let catColorIndex = 0;
-
-    const rand = (a,b)=>Math.random()*(b-a)+a;
-    const getRect = e => (e.kind==='player'||e.kind==='enemy') ? {x:e.x, y:e.y - e.h, w:e.w, h:e.h}
-                                                               : {x:e.x, y:e.y, w:e.w, h:e.h};
-    function aabb(A,B){ const a=getRect(A), b=getRect(B);
-      return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
-    function reset(){
-      coins=0; alive=true; paused=false;
-      WORLD.speed=START_SPEED; WORLD.t=0;
-      objects.coins.length=0; objects.enemies.length=0; objects.particles.length=0;
-      Object.assign(player,{ x:150, y:GROUND_Y, vy:0, onGround:true });
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      world.width = rect.width;
+      world.height = rect.height;
+      state.basket.x = Math.min(Math.max(state.basket.w / 2, state.basket.x), world.width - state.basket.w / 2);
     }
-    function drawBackground(){
-      ctx.fillStyle='#081326'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.globalAlpha=.5;
-      for(let i=0;i<120;i++){
-        const x=((i*83+WORLD.t*0.06)%(canvas.width+200))-100, y=(i*53)%260+10;
-        ctx.fillStyle='#5cc8ff'; ctx.fillRect(x,y,2,2);
-      }
-      ctx.globalAlpha=1;
-      ctx.fillStyle='#0b152f'; ctx.fillRect(0,GROUND_Y,canvas.width,canvas.height-GROUND_Y);
-      ctx.strokeStyle='#1a2a55';
-      for(let x=(-WORLD.t*1.2)%40;x<canvas.width;x+=40){
-        ctx.beginPath(); ctx.moveTo(x,GROUND_Y); ctx.lineTo(x+80,canvas.height); ctx.stroke();
-      }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    function resetGame() {
+      state.playing = true;
+      state.coins.length = 0;
+      state.score = 0;
+      state.streak = 0;
+      state.spawnTimer = 0;
+      state.spawnRate = 1.05;
+      state.basket.x = world.width / 2;
+      state.lastTime = performance.now();
+      ui.status.textContent = 'Играем';
+      ui.promo.classList.remove('visible');
+      updatePauseLabel();
+      updateHud();
     }
-    const CAT_MAP = [
-      [1,1,0,0,0,0,1,1],
-      [1,1,1,1,1,1,1,1],
-      [1,1,2,1,1,2,1,1],
-      [1,1,1,1,1,1,1,1],
-      [0,1,1,1,1,1,1,0],
-      [0,0,1,1,1,1,0,0],
-      [0,0,0,3,3,0,0,0],
-      [0,0,1,0,0,1,0,0],
-      [0,0,1,0,0,1,0,0],
-    ];
-    function drawPicoCat(){
-      const x0 = player.x, y0 = player.y - CAT_H;
-      const BODY = CAT_COLORS[catColorIndex], EYE = '#000000', TOOTH = '#ffffff';
-      const px = player.w/8, py = player.h/9;
-      for(let r=0;r<CAT_MAP.length;r++)
-        for(let c=0;c<CAT_MAP[0].length;c++)
-          if(CAT_MAP[r][c])
-            { ctx.fillStyle='#111'; ctx.fillRect(x0+c*px-1, y0+r*py-1, px+2, py+2); }
-      for(let r=0;r<CAT_MAP.length;r++){
-        for(let c=0;c<CAT_MAP[0].length;c++){
-          const cell = CAT_MAP[r][c]; if(!cell) continue;
-          ctx.fillStyle = (cell===1)?BODY:(cell===2)?EYE:TOOTH;
-          ctx.fillRect(x0+c*px, y0+r*py, px, py);
+
+    function updatePauseLabel() {
+      controls.pause.textContent = state.playing ? '⏸ Пауза' : '▶️ Продолжить';
+    }
+
+    // Управление вводом
+    const input = { left: false, right: false };
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') input.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd') input.right = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') input.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd') input.right = false;
+    });
+
+    function bindButton(button, key) {
+      button.addEventListener('pointerdown', (e) => { e.preventDefault(); input[key] = true; });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach(type => button.addEventListener(type, () => { input[key] = false; }));
+    }
+    bindButton(controls.left, 'left');
+    bindButton(controls.right, 'right');
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      state.pointerX = (e.clientX - rect.left);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (state.pointerX === null) return;
+      const rect = canvas.getBoundingClientRect();
+      state.pointerX = (e.clientX - rect.left);
+    });
+    window.addEventListener('pointerup', () => state.pointerX = null);
+    window.addEventListener('pointercancel', () => state.pointerX = null);
+
+    controls.restart.addEventListener('click', () => resetGame());
+    controls.pause.addEventListener('click', () => {
+      state.playing = !state.playing;
+      ui.status.textContent = state.playing ? 'Играем' : 'Пауза';
+      updatePauseLabel();
+    });
+
+    ui.copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard?.writeText(ui.promoCode.textContent.trim());
+        ui.copy.textContent = 'Скопировано';
+        setTimeout(() => ui.copy.textContent = 'Скопировать', 1200);
+      } catch (err) {
+        ui.copy.textContent = 'Не удалось :(';
+        setTimeout(() => ui.copy.textContent = 'Скопировать', 1400);
+      }
+    });
+
+    // Логика монет
+    function spawnCoin() {
+      const size = 18;
+      const speed = 130 + Math.random() * 60 + state.score * 5;
+      state.coins.push({
+        x: Math.random() * (world.width - size * 2) + size,
+        y: -size,
+        size,
+        vy: speed,
+        wobble: Math.random() * Math.PI * 2,
+      });
+    }
+
+    function update(dt) {
+      if (!state.playing) return;
+
+      // Ввод
+      let dir = 0;
+      if (input.left) dir -= 1;
+      if (input.right) dir += 1;
+      state.basket.x += dir * state.basket.speed * dt;
+
+      if (state.pointerX !== null) {
+        const target = state.pointerX;
+        const delta = target - state.basket.x;
+        state.basket.x += delta * 0.12;
+      }
+      const half = state.basket.w / 2;
+      state.basket.x = Math.max(half, Math.min(world.width - half, state.basket.x));
+
+      // Появление монет
+      state.spawnTimer -= dt;
+      if (state.spawnTimer <= 0) {
+        spawnCoin();
+        state.spawnRate = Math.max(0.6, state.spawnRate - 0.012);
+        state.spawnTimer = state.spawnRate;
+      }
+
+      // Движение монет
+      for (let i = state.coins.length - 1; i >= 0; i--) {
+        const c = state.coins[i];
+        c.wobble += dt * 4;
+        c.x += Math.sin(c.wobble) * 14 * dt;
+        c.y += c.vy * dt;
+
+        // Столкновение с корзиной
+        const caught =
+          c.y + c.size >= state.basket.y - state.basket.h / 2 &&
+          c.y - c.size <= state.basket.y + state.basket.h / 2 &&
+          Math.abs(c.x - state.basket.x) <= half + c.size * 0.6;
+
+        if (caught) {
+          state.coins.splice(i, 1);
+          state.score += 1;
+          state.streak = Math.min(state.streak + 1, 999);
+          ui.status.textContent = 'Поймали монетку!';
+          updateHud();
+          if (state.score >= state.target) {
+            unlockPromo();
+          }
+          continue;
+        }
+
+        // Потеря монеты
+        if (c.y - c.size > world.height) {
+          state.coins.splice(i, 1);
+          state.streak = 0;
+          ui.status.textContent = 'Уронили монету';
+          updateHud();
         }
       }
     }
-    function drawEnemy(e){
-      const top = e.y - e.h;
-      ctx.fillStyle='#ff6666'; ctx.fillRect(e.x, top, e.w, e.h);
-      ctx.fillStyle='#3a0f0f'; ctx.fillRect(e.x+e.w/2-3, top+8, 6, 6);
-    }
-    const COIN_SKINS = ['USDT','BTC','TON'];
-    function spawnCoin(){
-      const r=16, top=GROUND_Y - 80 - Math.random()*110;
-      const skin=COIN_SKINS[Math.floor(Math.random()*COIN_SKINS.length)];
-      objects.coins.push({ kind:'coin', x:canvas.width+rand(0,120), y:top, w:r*2, h:r*2, r,
-        skin, spin:rand(0,1000), shimmer:rand(0,1000) });
-    }
-    function coinPalette(s){
-      switch(s){
-        case 'USDT': return { inner:'#22ffcc', outer:'#008f73', logo:'#ffffff' };
-        case 'BTC':  return { inner:'#ffb347', outer:'#d78100', logo:'#1a1a1a' };
-        case 'TON':  return { inner:'#53b6ff', outer:'#0b6ed1', logo:'#ffffff' };
-        default:     return { inner:'#ffd94d', outer:'#b88400', logo:'#ffffff' };
+
+    function draw() {
+      ctx.clearRect(0, 0, world.width, world.height);
+
+      // Сетка/фон
+      ctx.fillStyle = '#081025';
+      ctx.fillRect(0, 0, world.width, world.height);
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      for (let y = 0; y < world.height; y += 32) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(world.width, y + 0.5);
+        ctx.stroke();
       }
+
+      // Корзина
+      drawBasket();
+      // Монеты
+      state.coins.forEach(drawCoin);
     }
-    function drawCoinLogo(s){
-      switch(s){
-        case 'USDT':
-          ctx.fillRect(-12,-2,24,4); ctx.fillRect(-3,-2,6,16); ctx.clearRect(-9,6,18,4); break;
-        case 'BTC':
-          ctx.fillRect(-3,-12,6,24); ctx.beginPath(); ctx.arc(0,-6,8,Math.PI*0.9,Math.PI*0.1,false);
-          ctx.arc(0,6,8,Math.PI*0.9,Math.PI*0.1,false); ctx.fill(); break;
-        case 'TON':
-          ctx.beginPath(); ctx.moveTo(0,-10); ctx.lineTo(10,0); ctx.lineTo(0,12); ctx.lineTo(-10,0); ctx.closePath();
-          ctx.strokeStyle=ctx.fillStyle; ctx.stroke(); break;
+
+    function drawBasket() {
+      const b = state.basket;
+      const x = b.x;
+      const y = world.height - 32;
+      b.y = y;
+      const w = b.w;
+      const h = b.h;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = '#0c1b33';
+      ctx.strokeStyle = '#5cc8ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(-w / 2, -h / 2, w, h, 6);
+      } else {
+        const r = 6;
+        ctx.moveTo(-w / 2 + r, -h / 2);
+        ctx.lineTo(w / 2 - r, -h / 2);
+        ctx.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+        ctx.lineTo(w / 2, h / 2 - r);
+        ctx.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2);
+        ctx.lineTo(-w / 2 + r, h / 2);
+        ctx.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r);
+        ctx.lineTo(-w / 2, -h / 2 + r);
+        ctx.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
       }
-    }
-    function drawCoin(c){
-      const {x,y,r,skin}=c, pal=coinPalette(skin);
-      const squash=0.12*Math.sin((WORLD.t+c.spin)*0.01);
-      ctx.save(); ctx.translate(x+r,y+r); ctx.scale(1+squash,1-squash);
-      ctx.rotate(((WORLD.t+c.spin)*0.006)%(Math.PI*2));
-      const g=ctx.createRadialGradient(0,0,r*0.25,0,0,r); g.addColorStop(0,pal.inner); g.addColorStop(1,pal.outer);
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,r-1.5,0,Math.PI*2); ctx.stroke();
-      ctx.save(); ctx.rotate(Math.PI*0.25);
-      ctx.globalAlpha=0.25+0.35*((Math.sin((WORLD.t+c.shimmer)*0.008)+1)/2);
-      const grd=ctx.createLinearGradient(-r,-r,r,r);
-      grd.addColorStop(0,'rgba(255,255,255,0)'); grd.addColorStop(0.5,'rgba(255,255,255,0.8)'); grd.addColorStop(1,'rgba(255,255,255,0)');
-      ctx.fillStyle=grd; ctx.fillRect(-r,-r,r*2,r*2); ctx.restore();
-      ctx.fillStyle=pal.logo; ctx.strokeStyle=pal.logo; drawCoinLogo(skin);
+      ctx.fill();
+      ctx.stroke();
       ctx.restore();
     }
-    function spawnEnemy(){
-      const w=44,h=32;
-      objects.enemies.push({ kind:'enemy', x:canvas.width+rand(0,120), y:GROUND_Y, w,h });
-    }
-    function jump(){ if(alive && player.onGround){ player.vy=JUMP_VELOCITY; player.onGround=false; } }
-    document.addEventListener('keydown',e=>{
-      if (e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); jump(); }
-      if (e.code==='KeyR') reset();
-      if (e.code==='KeyP') paused=!paused;
-      if (e.code==='KeyK') catColorIndex=(catColorIndex+1)%CAT_COLORS.length;
-    });
-    canvas.addEventListener('pointerdown', jump);
 
-    let last = performance.now();
-    function loop(now){
-      const dt=now-last; last=now;
-      if(!paused && alive){
-        WORLD.t+=dt; WORLD.speed+=SPEEDUP*dt;
-        if(now-lastSpawn.coin>SPAWN_COOLDOWN.coin){spawnCoin(); lastSpawn.coin=now;}
-        if(now-lastSpawn.enemy>SPAWN_COOLDOWN.enemy){spawnEnemy(); lastSpawn.enemy=now;}
-        player.vy+=GRAVITY; player.y+=player.vy;
-        if(player.y>=GROUND_Y){player.y=GROUND_Y; player.vy=0; player.onGround=true;}
-        for(let i=objects.coins.length-1;i>=0;i--){
-          const c=objects.coins[i]; c.x-=WORLD.speed;
-          if(aabb(c,player)){ coins++; objects.coins.splice(i,1); }
-          else if(c.x+c.w<-10) objects.coins.splice(i,1);
-        }
-        for(let i=objects.enemies.length-1;i>=0;i--){
-          const e=objects.enemies[i]; e.x-=WORLD.speed*1.05;
-          if(aabb(e,player)){ alive=false; }
-          else if(e.x+e.w<-10) objects.enemies.splice(i,1);
-        }
-      }
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      drawBackground();
-      objects.coins.forEach(drawCoin);
-      objects.enemies.forEach(drawEnemy);
-      drawPicoCat();
-      ctx.fillStyle='#e7f3ff'; ctx.font='20px system-ui, sans-serif';
-      ctx.fillText(`Монеты: ${coins}`, 20, 36);
-      if(!alive){
-        ctx.fillStyle='#ffb3c0'; ctx.font='28px system-ui, sans-serif';
-        ctx.fillText('Игра окончена — R для рестарта', canvas.width/2-180, canvas.height/2);
-      }
+    function drawCoin(c) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      const radius = c.size;
+      const grad = ctx.createRadialGradient(-radius * 0.4, -radius * 0.4, radius * 0.2, 0, 0, radius);
+      grad.addColorStop(0, '#fffbe2');
+      grad.addColorStop(1, '#ffd54f');
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = '#c79c2d';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // USDT логотип из пиксельных полос
+      ctx.fillStyle = '#0b5b4f';
+      ctx.fillRect(-radius * 0.45, -radius * 0.08, radius * 0.9, radius * 0.18);
+      ctx.fillRect(-radius * 0.18, -radius * 0.55, radius * 0.36, radius * 1.1);
+      ctx.restore();
+    }
+
+    function unlockPromo() {
+      state.playing = false;
+      ui.status.textContent = 'Промокод разблокирован!';
+      ui.promo.classList.add('visible');
+      updatePauseLabel();
+    }
+
+    function updateHud() {
+      ui.score.textContent = `${state.score} / ${state.target}`;
+      ui.streak.textContent = `${state.streak}x`;
+    }
+
+    function loop(now) {
+      const dt = Math.min((now - state.lastTime) / 1000, 0.05);
+      state.lastTime = now;
+      update(dt);
+      draw();
       requestAnimationFrame(loop);
     }
-    reset(); requestAnimationFrame(t=>{ last=t; loop(t); });
 
-    // Buttons: save / best
-    document.getElementById('save').onclick = async () => {
-      if (!currentUser) return alert('Нет данных пользователя Telegram');
-      const res = await fetch('/api/score', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: currentUser.id, score: coins })
-      });
-      const j = await res.json();
-      alert('Сохранено. Лучший: ' + j.best);
-    };
-    document.getElementById('best').onclick = async () => {
-      if (!currentUser) return alert('Нет данных пользователя Telegram');
-      const res = await fetch('/api/score/' + currentUser.id);
-      const j = await res.json();
-      alert('Лучший счёт: ' + j.best);
-    };
+    resizeCanvas();
+    resetGame();
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
