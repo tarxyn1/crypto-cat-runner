@@ -447,8 +447,10 @@
     }
 
     function unlockPromo() {
+      state.playing = false;
       ui.status.textContent = 'Промокод разблокирован!';
       ui.promo.classList.add('visible');
+      updatePauseLabel();
     }
 
     function updateHud() {
