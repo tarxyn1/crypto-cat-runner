@@ -3,80 +3,69 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Catch the Coin · Mini App</title>
+  <title>Catch the Coin — Mini App</title>
   <style>
     :root {
       color-scheme: dark;
-      --bg: #030712;
-      --panel: #0e1528;
-      --accent: #2cf3b8;
-      --accent-2: #5cc8ff;
-      --muted: #93a6c7;
-      --text: #eef5ff;
-      --danger: #ff7c9f;
-      --shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+      --bg: #050b14;
+      --panel: #0c1324;
+      --accent: #1dd4a8;
+      --accent-2: #66e3ff;
+      --text: #e9f4ff;
+      --muted: #7f93b5;
+      --danger: #ff7b7b;
       font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      background:
-        radial-gradient(circle at 18% 28%, rgba(92, 200, 255, 0.15), transparent 35%),
-        radial-gradient(circle at 78% 12%, rgba(44, 243, 184, 0.12), transparent 42%),
-        var(--bg);
+      background: radial-gradient(circle at 20% 20%, rgba(102, 227, 255, 0.08), transparent 30%),
+                  radial-gradient(circle at 80% 0%, rgba(29, 212, 168, 0.12), transparent 38%),
+                  var(--bg);
       color: var(--text);
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 16px;
     }
-    .app {
+    .wrap {
       width: min(560px, 100%);
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
     header {
-      background: var(--panel);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      padding: 12px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      box-shadow: var(--shadow);
-    }
-    .title { font-weight: 800; letter-spacing: 0.2px; }
-    .tag {
-      padding: 8px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: linear-gradient(135deg, rgba(44, 243, 184, 0.18), rgba(92, 200, 255, 0.18));
-      color: #0b1a1d;
-      font-weight: 700;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-    }
-    .board {
       background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+    }
+    .title { font-weight: 700; letter-spacing: 0.2px; }
+    .badge {
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 18px;
-      padding: 12px;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 14px;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
     canvas {
       width: 100%;
       height: auto;
       aspect-ratio: 9 / 16;
-      background: #060c1a;
-      border-radius: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: #071020;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
       image-rendering: pixelated;
       touch-action: none;
     }
@@ -86,134 +75,111 @@
       gap: 8px;
     }
     .pill {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 12px;
-      padding: 10px 12px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 10px;
+      font-weight: 600;
+      text-align: center;
       color: var(--text);
-      letter-spacing: 0.2px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
     .controls {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
+      margin-top: 4px;
     }
     button {
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 12px;
-      padding: 12px 10px;
-      font-weight: 700;
+      padding: 10px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
       color: var(--text);
-      background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      font-weight: 600;
       cursor: pointer;
-      box-shadow: var(--shadow);
-      transition: transform 0.08s ease, border-color 0.2s ease, opacity 0.2s ease;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      transition: border-color 0.2s ease, transform 0.08s ease;
     }
     button:active { transform: translateY(1px) scale(0.99); }
-    button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #041016; }
-    button.danger { border-color: rgba(255, 124, 159, 0.45); color: var(--danger); }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .tip {
-      text-align: center;
-      color: var(--muted);
-      font-size: 14px;
-      letter-spacing: 0.2px;
-    }
+    button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #04141a; }
+    button.danger { border-color: rgba(255, 123, 123, 0.4); color: var(--danger); }
     .promo {
-      background: linear-gradient(135deg, rgba(44, 243, 184, 0.2), rgba(92, 200, 255, 0.2));
-      border: 1px dashed rgba(255, 255, 255, 0.2);
-      border-radius: 16px;
-      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(29, 212, 168, 0.16), rgba(102, 227, 255, 0.16));
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(6px);
       pointer-events: none;
       transition: opacity 0.25s ease, transform 0.25s ease;
-      box-shadow: var(--shadow);
     }
     .promo.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
     .promo-code {
       font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-      background: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
       padding: 8px 10px;
       border-radius: 10px;
-      letter-spacing: 1px;
+      letter-spacing: 1.2px;
     }
-    @media (max-width: 520px) {
+    @media (max-width: 480px) {
       body { padding: 12px; }
       header { flex-direction: column; align-items: flex-start; }
-      .title { font-size: 16px; }
-      .tag { width: 100%; text-align: center; }
-      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .controls button.full { grid-column: span 2; }
+      .title { font-size: 15px; }
+      .badge { width: 100%; justify-content: center; }
     }
   </style>
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-  <div class="app">
+  <div class="wrap">
     <header>
-      <div class="title">Catch the Coin — Мини-игра</div>
-      <div class="tag">Собери 10 USDT</div>
+      <div class="title">Catch the Coin · Мини-игра</div>
+      <div class="badge">Собери 10 монет — получи промокод</div>
     </header>
 
-    <div class="board">
-      <div class="hud">
-        <div class="pill"><span>Монеты</span><span id="score">0 / 10</span></div>
-        <div class="pill"><span>Серия</span><span id="streak">0x</span></div>
-        <div class="pill"><span>Статус</span><span id="status">Готовы?</span></div>
-      </div>
+    <canvas id="game" width="360" height="640"></canvas>
 
-      <canvas id="game" width="360" height="640" aria-label="Игровое поле"></canvas>
-      <div class="tip">Свайпайте или нажимайте стрелки, чтобы двигать кошелёк. Поймайте 10 монет.</div>
+    <div class="hud">
+      <div class="pill" id="score">Монеты: 0</div>
+      <div class="pill" id="streak">Серия: 0x</div>
+      <div class="pill" id="status">Готов?</div>
+    </div>
 
-      <div class="controls">
-        <button id="left">◀︎ Влево</button>
-        <button id="right">Вправо ▶︎</button>
-        <button id="restart" class="danger full">↺ Рестарт</button>
-        <button id="pause" class="full">⏯ Пауза / Продолжить</button>
-      </div>
+    <div class="controls">
+      <button id="left">◀︎ Влево</button>
+      <button id="restart" class="danger">↺ Рестарт</button>
+      <button id="right">Вправо ▶︎</button>
+      <button id="tap" class="primary" style="grid-column: span 3;">Тапни/двигай — корзинка следует за пальцем</button>
     </div>
 
     <div class="promo" id="promo">
       <div>
-        <div style="font-weight:800; margin-bottom:4px;">Промокод за 10 монет</div>
-        <div class="promo-code" id="promoCode">COIN-USDT-2024</div>
+        <div style="font-weight:700;">Промокод за 10 USDT</div>
+        <div class="promo-code" id="promoCode">COIN-BOOST-2024</div>
       </div>
       <button class="primary" id="copy">Скопировать</button>
     </div>
   </div>
 
   <script>
-    // Настройки холста под разные плотности пикселей
+    // Минимальная интеграция с Telegram Mini App
+    (function initTelegram() {
+      const tg = window.Telegram?.WebApp;
+      try {
+        tg?.ready();
+        tg?.expand();
+        tg?.setHeaderColor?.("secondary_bg_color");
+        tg?.setBackgroundColor?.("#050b14");
+      } catch (err) { console.warn(err); }
+    })();
+
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-
-    const ui = {
-      score: document.getElementById('score'),
-      streak: document.getElementById('streak'),
-      status: document.getElementById('status'),
-      promo: document.getElementById('promo'),
-      promoCode: document.getElementById('promoCode'),
-      copy: document.getElementById('copy'),
-    };
-
-    const controls = {
-      left: document.getElementById('left'),
-      right: document.getElementById('right'),
-      restart: document.getElementById('restart'),
-      pause: document.getElementById('pause'),
-    };
-
-    const world = { width: 360, height: 640 };
     let dpr = window.devicePixelRatio || 1;
 
     function resizeCanvas() {
@@ -222,253 +188,198 @@
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = false;
-      world.width = rect.width;
-      world.height = rect.height;
-      state.basket.x = Math.min(Math.max(state.basket.w / 2, state.basket.x), world.width - state.basket.w / 2);
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Состояние игры
     const state = {
       playing: true,
-      coins: [],
-      basket: { x: 180, y: 600, w: 90, h: 20, speed: 340 },
       score: 0,
       streak: 0,
       target: 10,
-      spawnTimer: 0,
-      spawnRate: 1.05,
-      lastTime: performance.now(),
-      pointerX: null,
+      promoUnlocked: false,
     };
 
-    function resetGame() {
-      state.playing = true;
-      state.coins.length = 0;
-      state.score = 0;
-      state.streak = 0;
-      state.spawnTimer = 0;
-      state.spawnRate = 1.05;
-      state.basket.x = world.width / 2;
-      state.lastTime = performance.now();
-      ui.status.textContent = 'Играем';
-      ui.promo.classList.remove('visible');
-      updatePauseLabel();
-      updateHud();
-    }
+    const groundY = 580; // in CSS pixels (before dpr)
+    const basket = { x: 180, y: groundY - 36, w: 90, h: 32, speed: 320, vx: 0 };
+    const coins = [];
+    let lastSpawn = 0;
+    const spawnEvery = 900;
 
-    function updatePauseLabel() {
-      controls.pause.textContent = state.playing ? '⏸ Пауза' : '▶️ Продолжить';
-    }
+    const keys = new Set();
 
-    // Управление вводом
-    const input = { left: false, right: false };
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') input.left = true;
-      if (e.key === 'ArrowRight' || e.key === 'd') input.right = true;
-    });
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') input.left = false;
-      if (e.key === 'ArrowRight' || e.key === 'd') input.right = false;
-    });
+    function drawBackground() {
+      const cw = canvas.width / dpr;
+      const ch = canvas.height / dpr;
 
-    function bindButton(button, key) {
-      button.addEventListener('pointerdown', (e) => { e.preventDefault(); input[key] = true; });
-      ['pointerup', 'pointerleave', 'pointercancel'].forEach(type => button.addEventListener(type, () => { input[key] = false; }));
-    }
-    bindButton(controls.left, 'left');
-    bindButton(controls.right, 'right');
+      ctx.fillStyle = '#061020';
+      ctx.fillRect(0, 0, cw, ch);
 
-    canvas.addEventListener('pointerdown', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      state.pointerX = (e.clientX - rect.left);
-    });
-    canvas.addEventListener('pointermove', (e) => {
-      if (state.pointerX === null) return;
-      const rect = canvas.getBoundingClientRect();
-      state.pointerX = (e.clientX - rect.left);
-    });
-    window.addEventListener('pointerup', () => state.pointerX = null);
-    window.addEventListener('pointercancel', () => state.pointerX = null);
-
-    controls.restart.addEventListener('click', () => resetGame());
-    controls.pause.addEventListener('click', () => {
-      state.playing = !state.playing;
-      ui.status.textContent = state.playing ? 'Играем' : 'Пауза';
-      updatePauseLabel();
-    });
-
-    ui.copy.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard?.writeText(ui.promoCode.textContent.trim());
-        ui.copy.textContent = 'Скопировано';
-        setTimeout(() => ui.copy.textContent = 'Скопировать', 1200);
-      } catch (err) {
-        ui.copy.textContent = 'Не удалось :(';
-        setTimeout(() => ui.copy.textContent = 'Скопировать', 1400);
+      ctx.save();
+      ctx.globalAlpha = 0.12;
+      ctx.fillStyle = '#1dd4a8';
+      for (let i = 0; i < 30; i++) {
+        const x = (i * 90 + performance.now() * 0.02) % (cw + 120) - 60;
+        const y = (i * 60) % 320 + 12;
+        ctx.fillRect(x, y, 3, 3);
       }
-    });
+      ctx.globalAlpha = 1;
+      ctx.restore();
 
-    // Логика монет
-    function spawnCoin() {
-      const size = 18;
-      const speed = 130 + Math.random() * 60 + state.score * 5;
-      state.coins.push({
-        x: Math.random() * (world.width - size * 2) + size,
-        y: -size,
-        size,
-        vy: speed,
-        wobble: Math.random() * Math.PI * 2,
-      });
-    }
-
-    function update(dt) {
-      if (!state.playing) return;
-
-      // Ввод
-      let dir = 0;
-      if (input.left) dir -= 1;
-      if (input.right) dir += 1;
-      state.basket.x += dir * state.basket.speed * dt;
-
-      if (state.pointerX !== null) {
-        const target = state.pointerX;
-        const delta = target - state.basket.x;
-        state.basket.x += delta * 0.12;
-      }
-      const half = state.basket.w / 2;
-      state.basket.x = Math.max(half, Math.min(world.width - half, state.basket.x));
-
-      // Появление монет
-      state.spawnTimer -= dt;
-      if (state.spawnTimer <= 0) {
-        spawnCoin();
-        state.spawnRate = Math.max(0.6, state.spawnRate - 0.012);
-        state.spawnTimer = state.spawnRate;
-      }
-
-      // Движение монет
-      for (let i = state.coins.length - 1; i >= 0; i--) {
-        const c = state.coins[i];
-        c.wobble += dt * 4;
-        c.x += Math.sin(c.wobble) * 14 * dt;
-        c.y += c.vy * dt;
-
-        // Столкновение с корзиной
-        const caught =
-          c.y + c.size >= state.basket.y - state.basket.h / 2 &&
-          c.y - c.size <= state.basket.y + state.basket.h / 2 &&
-          Math.abs(c.x - state.basket.x) <= half + c.size * 0.6;
-
-        if (caught) {
-          state.coins.splice(i, 1);
-          state.score += 1;
-          state.streak = Math.min(state.streak + 1, 999);
-          ui.status.textContent = 'Поймали монетку!';
-          updateHud();
-          if (state.score >= state.target) {
-            unlockPromo();
-          }
-          continue;
-        }
-
-        // Потеря монеты
-        if (c.y - c.size > world.height) {
-          state.coins.splice(i, 1);
-          state.streak = 0;
-          ui.status.textContent = 'Уронили монету';
-          updateHud();
-        }
-      }
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, world.width, world.height);
-
-      // Сетка/фон
-      ctx.fillStyle = '#081025';
-      ctx.fillRect(0, 0, world.width, world.height);
-      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-      for (let y = 0; y < world.height; y += 32) {
-        ctx.beginPath();
-        ctx.moveTo(0, y + 0.5);
-        ctx.lineTo(world.width, y + 0.5);
-        ctx.stroke();
-      }
-
-      // Корзина
-      drawBasket();
-      // Монеты
-      state.coins.forEach(drawCoin);
+      ctx.fillStyle = '#0e172d';
+      ctx.fillRect(0, groundY + 12, cw, ch);
     }
 
     function drawBasket() {
-      const b = state.basket;
-      const x = b.x;
-      const y = world.height - 32;
-      b.y = y;
-      const w = b.w;
-      const h = b.h;
-
       ctx.save();
-      ctx.translate(x, y);
-      ctx.fillStyle = '#0c1b33';
-      ctx.strokeStyle = '#5cc8ff';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(-w / 2, -h / 2, w, h, 6);
-      ctx.fill();
-      ctx.stroke();
+      ctx.translate(basket.x, basket.y);
+      ctx.fillStyle = '#0b192d';
+      ctx.fillRect(-basket.w / 2, 0, basket.w, basket.h);
+      ctx.fillStyle = '#22ffcc';
+      ctx.fillRect(-basket.w / 2, -6, basket.w, 10);
+      ctx.fillStyle = '#0f4138';
+      ctx.fillRect(-basket.w / 2 + 6, 8, basket.w - 12, basket.h - 12);
       ctx.restore();
+    }
+
+    function spawnCoin(now) {
+      const size = 26;
+      const x = Math.random() * (canvas.width / dpr - size * 2) + size;
+      const speed = 140 + Math.random() * 120;
+      coins.push({ x, y: -20, r: size / 2, vy: speed, rot: Math.random() * Math.PI * 2, spin: 0.015 + Math.random() * 0.012 });
+      lastSpawn = now;
     }
 
     function drawCoin(c) {
       ctx.save();
       ctx.translate(c.x, c.y);
-      const radius = c.size;
-      const grad = ctx.createRadialGradient(-radius * 0.4, -radius * 0.4, radius * 0.2, 0, 0, radius);
-      grad.addColorStop(0, '#fffbe2');
-      grad.addColorStop(1, '#ffd54f');
-      ctx.fillStyle = grad;
-      ctx.strokeStyle = '#c79c2d';
-      ctx.lineWidth = 3;
+      ctx.rotate(c.rot);
+      const r = c.r;
+      const inset = r * 0.24;
+      const grd = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.2, 0, 0, r);
+      grd.addColorStop(0, '#5affd4');
+      grd.addColorStop(1, '#0b8c74');
+      ctx.fillStyle = grd;
       ctx.beginPath();
-      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.stroke();
 
-      // USDT логотип из пиксельных полос
-      ctx.fillStyle = '#0b5b4f';
-      ctx.fillRect(-radius * 0.45, -radius * 0.08, radius * 0.9, radius * 0.18);
-      ctx.fillRect(-radius * 0.18, -radius * 0.55, radius * 0.36, radius * 1.1);
+      ctx.fillStyle = '#ffffff';
+      ctx.save();
+      ctx.scale(0.9, 0.9);
+      ctx.fillRect(-r * 0.6, -inset * 0.4, r * 1.2, inset * 0.8);
+      ctx.fillRect(-inset * 0.5, -inset * 0.4, inset, r * 1.1);
+      ctx.clearRect(-inset * 1.3, inset * 0.2, inset * 2.6, inset * 0.6);
+      ctx.restore();
       ctx.restore();
     }
 
-    function unlockPromo() {
-      state.playing = false;
-      ui.status.textContent = 'Промокод разблокирован!';
-      ui.promo.classList.add('visible');
-      updatePauseLabel();
+    function drawHUD() {
+      document.getElementById('score').textContent = `Монеты: ${state.score}`;
+      document.getElementById('streak').textContent = `Серия: ${state.streak}x`;
+      document.getElementById('status').textContent = state.promoUnlocked
+        ? 'Промокод открыт!'
+        : state.playing
+          ? 'Лови монеты'
+          : 'Пауза';
     }
 
-    function updateHud() {
-      ui.score.textContent = `${state.score} / ${state.target}`;
-      ui.streak.textContent = `${state.streak}x`;
+    function update(dt, now) {
+      const canvasWidth = canvas.width / dpr;
+
+      // управление
+      basket.vx = 0;
+      if (keys.has('ArrowLeft') || keys.has('KeyA')) basket.vx -= basket.speed;
+      if (keys.has('ArrowRight') || keys.has('KeyD')) basket.vx += basket.speed;
+      basket.x += basket.vx * dt;
+      basket.x = Math.max(basket.w / 2 + 6, Math.min(canvasWidth - basket.w / 2 - 6, basket.x));
+
+      if (now - lastSpawn > spawnEvery && state.playing && !state.promoUnlocked) spawnCoin(now);
+
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const c = coins[i];
+        c.y += c.vy * dt;
+        c.rot += c.spin * Math.PI * 2;
+        if (c.y > groundY + 18) {
+          coins.splice(i, 1);
+          state.streak = 0;
+          continue;
+        }
+        const withinX = Math.abs(c.x - basket.x) < basket.w * 0.55;
+        const withinY = c.y + c.r > basket.y && c.y - c.r < basket.y + basket.h;
+        if (withinX && withinY) {
+          coins.splice(i, 1);
+          state.score += 1;
+          state.streak += 1;
+          if (state.score >= state.target) unlockPromo();
+        }
+      }
     }
 
+    function render() {
+      drawBackground();
+      coins.forEach(drawCoin);
+      drawBasket();
+      drawHUD();
+    }
+
+    let lastTime = performance.now();
     function loop(now) {
-      const dt = Math.min((now - state.lastTime) / 1000, 0.05);
-      state.lastTime = now;
-      update(dt);
-      draw();
+      const dt = Math.min((now - lastTime) / 1000, 0.033);
+      lastTime = now;
+      if (state.playing) update(dt, now);
+      render();
       requestAnimationFrame(loop);
     }
-
-    resizeCanvas();
-    resetGame();
     requestAnimationFrame(loop);
+
+    function unlockPromo() {
+      state.promoUnlocked = true;
+      document.getElementById('promo').classList.add('visible');
+      document.getElementById('status').textContent = 'Промокод открыт!';
+    }
+
+    function resetGame() {
+      state.score = 0;
+      state.streak = 0;
+      state.promoUnlocked = false;
+      coins.splice(0, coins.length);
+      lastSpawn = 0;
+      document.getElementById('promo').classList.remove('visible');
+      drawHUD();
+    }
+
+    // управление с клавиатуры и мыши/тач
+    window.addEventListener('keydown', (e) => { keys.add(e.code); if (['ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); });
+    window.addEventListener('keyup', (e) => keys.delete(e.code));
+    canvas.addEventListener('pointermove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      basket.x = (e.clientX - rect.left);
+    });
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      basket.x = (e.clientX - rect.left);
+    });
+
+    document.getElementById('left').addEventListener('pointerdown', () => keys.add('ArrowLeft'));
+    document.getElementById('right').addEventListener('pointerdown', () => keys.add('ArrowRight'));
+    document.getElementById('left').addEventListener('pointerup', () => keys.delete('ArrowLeft'));
+    document.getElementById('right').addEventListener('pointerup', () => keys.delete('ArrowRight'));
+    document.getElementById('restart').addEventListener('click', resetGame);
+    document.getElementById('tap').addEventListener('click', () => state.playing = true);
+
+    document.getElementById('copy').addEventListener('click', async () => {
+      const code = document.getElementById('promoCode').textContent.trim();
+      try {
+        await navigator.clipboard.writeText(code);
+        document.getElementById('status').textContent = 'Промокод скопирован';
+      } catch (err) {
+        alert('Скопируй вручную: ' + code);
+      }
+    });
   </script>
 </body>
 </html>
