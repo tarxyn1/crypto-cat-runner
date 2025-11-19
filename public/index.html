@@ -222,8 +222,10 @@
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
       world.width = rect.width;
       world.height = rect.height;
+      state.basket.x = Math.min(Math.max(state.basket.w / 2, state.basket.x), world.width - state.basket.w / 2);
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
@@ -253,7 +255,12 @@
       state.lastTime = performance.now();
       ui.status.textContent = 'Играем';
       ui.promo.classList.remove('visible');
+      updatePauseLabel();
       updateHud();
+    }
+
+    function updatePauseLabel() {
+      controls.pause.textContent = state.playing ? '⏸ Пауза' : '▶️ Продолжить';
     }
 
     // Управление вводом
@@ -290,6 +297,7 @@
     controls.pause.addEventListener('click', () => {
       state.playing = !state.playing;
       ui.status.textContent = state.playing ? 'Играем' : 'Пауза';
+      updatePauseLabel();
     });
 
     ui.copy.addEventListener('click', async () => {
