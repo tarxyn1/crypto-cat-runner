@@ -2,243 +2,384 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Crypto Cat Runner — WebApp</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Catch the Coin — Mini App</title>
   <style>
-    html,body{margin:0;background:#0b1020;color:#e7f3ff;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-    .hud{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:10px 8px;font-weight:600}
-    .pill{background:#0f1730;border:1px solid #1e2747;border-radius:999px;padding:6px 10px}
-    canvas{width:min(960px,95vw);height:auto;display:block;margin:8px auto 16px;background:#0a0f1e;
-           border:1px solid #1e2747;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.35);image-rendering:pixelated}
-    .row{display:flex;justify-content:center;gap:10px;margin:8px 0}
-    button{cursor:pointer;border:1px solid #1e2747;background:#162041;color:#e7f3ff;border-radius:10px;padding:8px 12px}
+    :root {
+      color-scheme: dark;
+      --bg: #050b14;
+      --panel: #0c1324;
+      --accent: #1dd4a8;
+      --accent-2: #66e3ff;
+      --text: #e9f4ff;
+      --muted: #7f93b5;
+      --danger: #ff7b7b;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 20%, rgba(102, 227, 255, 0.08), transparent 30%),
+                  radial-gradient(circle at 80% 0%, rgba(29, 212, 168, 0.12), transparent 38%),
+                  var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .wrap {
+      width: min(560px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+    }
+    .title { font-weight: 700; letter-spacing: 0.2px; }
+    .badge {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 14px;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 9 / 16;
+      background: #071020;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+    }
+    .pill {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 10px;
+      font-weight: 600;
+      text-align: center;
+      color: var(--text);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      transition: border-color 0.2s ease, transform 0.08s ease;
+    }
+    button:active { transform: translateY(1px) scale(0.99); }
+    button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #04141a; }
+    button.danger { border-color: rgba(255, 123, 123, 0.4); color: var(--danger); }
+    .promo {
+      background: linear-gradient(135deg, rgba(29, 212, 168, 0.16), rgba(102, 227, 255, 0.16));
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(6px);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .promo.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .promo-code {
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 8px 10px;
+      border-radius: 10px;
+      letter-spacing: 1.2px;
+    }
+    @media (max-width: 480px) {
+      body { padding: 12px; }
+      header { flex-direction: column; align-items: flex-start; }
+      .title { font-size: 15px; }
+      .badge { width: 100%; justify-content: center; }
+    }
   </style>
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-  <div class="hud">
-    <div class="pill">↑/Space — прыжок • R — рестарт • P — пауза • K — смена цвета кота</div>
+  <div class="wrap">
+    <header>
+      <div class="title">Catch the Coin · Мини-игра</div>
+      <div class="badge">Собери 10 монет — получи промокод</div>
+    </header>
+
+    <canvas id="game" width="360" height="640"></canvas>
+
+    <div class="hud">
+      <div class="pill" id="score">Монеты: 0</div>
+      <div class="pill" id="streak">Серия: 0x</div>
+      <div class="pill" id="status">Готов?</div>
+    </div>
+
+    <div class="controls">
+      <button id="left">◀︎ Влево</button>
+      <button id="restart" class="danger">↺ Рестарт</button>
+      <button id="right">Вправо ▶︎</button>
+      <button id="tap" class="primary" style="grid-column: span 3;">Тапни/двигай — корзинка следует за пальцем</button>
+    </div>
+
+    <div class="promo" id="promo">
+      <div>
+        <div style="font-weight:700;">Промокод за 10 USDT</div>
+        <div class="promo-code" id="promoCode">COIN-BOOST-2024</div>
+      </div>
+      <button class="primary" id="copy">Скопировать</button>
+    </div>
   </div>
-  <div class="row">
-    <button id="save">Сохранить рекорд</button>
-    <button id="best">Показать рекорд</button>
-  </div>
-  <canvas id="game" width="960" height="540"></canvas>
 
   <script>
-    // --- Telegram WebApp integration
-    const tg = window.Telegram && window.Telegram.WebApp;
-    let currentUser = null;
-    (async () => {
+    // Минимальная интеграция с Telegram Mini App
+    (function initTelegram() {
+      const tg = window.Telegram?.WebApp;
       try {
-        tg && tg.ready();
-        tg && tg.expand();
-        const theme = tg?.themeParams || {};
-        // Validate initData on backend
-        if (tg?.initData) {
-          const res = await fetch('/api/validate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData: tg.initData })
-          });
-          const j = await res.json();
-          if (!j.ok) console.warn('initData invalid', j);
-          // parse user
-          const urlp = new URLSearchParams(tg.initData);
-          const userJSON = urlp.get('user');
-          if (userJSON) currentUser = JSON.parse(userJSON);
-        }
-      } catch (e) { console.warn(e); }
+        tg?.ready();
+        tg?.expand();
+        tg?.setHeaderColor?.("secondary_bg_color");
+        tg?.setBackgroundColor?.("#050b14");
+      } catch (err) { console.warn(err); }
     })();
-  </script>
 
-  <script>
-    // === GAME (shortened: Pico Park cat + coins + enemies)
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
+    let dpr = window.devicePixelRatio || 1;
 
-    const GROUND_Y = 420, GRAVITY = 0.9, JUMP_VELOCITY = -17;
-    const START_SPEED = 6, SPEEDUP = 0.0009;
-    const SPAWN_COOLDOWN = { coin: 1000, enemy: 1100 };
-    const WORLD = { speed: START_SPEED, t: 0 };
-
-    let coins = 0, alive = true, paused = false;
-
-    const CELL = 6;
-    const CAT_W = 8*CELL, CAT_H = 9*CELL;
-    const player = { kind:'player', x:150, y:GROUND_Y, w:CAT_W, h:CAT_H, vy:0, onGround:true };
-
-    const objects = { coins: [], enemies: [], particles: [] };
-    let lastSpawn = { coin: 0, enemy: 0 };
-
-    const CAT_COLORS = ['#f4a261','#5bb6ff','#ff9bb0','#ffd166','#8fff8b','#bba0ff'];
-    let catColorIndex = 0;
-
-    const rand = (a,b)=>Math.random()*(b-a)+a;
-    const getRect = e => (e.kind==='player'||e.kind==='enemy') ? {x:e.x, y:e.y - e.h, w:e.w, h:e.h}
-                                                               : {x:e.x, y:e.y, w:e.w, h:e.h};
-    function aabb(A,B){ const a=getRect(A), b=getRect(B);
-      return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
-    function reset(){
-      coins=0; alive=true; paused=false;
-      WORLD.speed=START_SPEED; WORLD.t=0;
-      objects.coins.length=0; objects.enemies.length=0; objects.particles.length=0;
-      Object.assign(player,{ x:150, y:GROUND_Y, vy:0, onGround:true });
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    function drawBackground(){
-      ctx.fillStyle='#081326'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.globalAlpha=.5;
-      for(let i=0;i<120;i++){
-        const x=((i*83+WORLD.t*0.06)%(canvas.width+200))-100, y=(i*53)%260+10;
-        ctx.fillStyle='#5cc8ff'; ctx.fillRect(x,y,2,2);
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const state = {
+      playing: true,
+      score: 0,
+      streak: 0,
+      target: 10,
+      promoUnlocked: false,
+    };
+
+    const groundY = 580; // in CSS pixels (before dpr)
+    const basket = { x: 180, y: groundY - 36, w: 90, h: 32, speed: 320, vx: 0 };
+    const coins = [];
+    let lastSpawn = 0;
+    const spawnEvery = 900;
+
+    const keys = new Set();
+
+    function drawBackground() {
+      const cw = canvas.width / dpr;
+      const ch = canvas.height / dpr;
+
+      ctx.fillStyle = '#061020';
+      ctx.fillRect(0, 0, cw, ch);
+
+      ctx.save();
+      ctx.globalAlpha = 0.12;
+      ctx.fillStyle = '#1dd4a8';
+      for (let i = 0; i < 30; i++) {
+        const x = (i * 90 + performance.now() * 0.02) % (cw + 120) - 60;
+        const y = (i * 60) % 320 + 12;
+        ctx.fillRect(x, y, 3, 3);
       }
-      ctx.globalAlpha=1;
-      ctx.fillStyle='#0b152f'; ctx.fillRect(0,GROUND_Y,canvas.width,canvas.height-GROUND_Y);
-      ctx.strokeStyle='#1a2a55';
-      for(let x=(-WORLD.t*1.2)%40;x<canvas.width;x+=40){
-        ctx.beginPath(); ctx.moveTo(x,GROUND_Y); ctx.lineTo(x+80,canvas.height); ctx.stroke();
-      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      ctx.fillStyle = '#0e172d';
+      ctx.fillRect(0, groundY + 12, cw, ch);
     }
-    const CAT_MAP = [
-      [1,1,0,0,0,0,1,1],
-      [1,1,1,1,1,1,1,1],
-      [1,1,2,1,1,2,1,1],
-      [1,1,1,1,1,1,1,1],
-      [0,1,1,1,1,1,1,0],
-      [0,0,1,1,1,1,0,0],
-      [0,0,0,3,3,0,0,0],
-      [0,0,1,0,0,1,0,0],
-      [0,0,1,0,0,1,0,0],
-    ];
-    function drawPicoCat(){
-      const x0 = player.x, y0 = player.y - CAT_H;
-      const BODY = CAT_COLORS[catColorIndex], EYE = '#000000', TOOTH = '#ffffff';
-      const px = player.w/8, py = player.h/9;
-      for(let r=0;r<CAT_MAP.length;r++)
-        for(let c=0;c<CAT_MAP[0].length;c++)
-          if(CAT_MAP[r][c])
-            { ctx.fillStyle='#111'; ctx.fillRect(x0+c*px-1, y0+r*py-1, px+2, py+2); }
-      for(let r=0;r<CAT_MAP.length;r++){
-        for(let c=0;c<CAT_MAP[0].length;c++){
-          const cell = CAT_MAP[r][c]; if(!cell) continue;
-          ctx.fillStyle = (cell===1)?BODY:(cell===2)?EYE:TOOTH;
-          ctx.fillRect(x0+c*px, y0+r*py, px, py);
-        }
-      }
-    }
-    function drawEnemy(e){
-      const top = e.y - e.h;
-      ctx.fillStyle='#ff6666'; ctx.fillRect(e.x, top, e.w, e.h);
-      ctx.fillStyle='#3a0f0f'; ctx.fillRect(e.x+e.w/2-3, top+8, 6, 6);
-    }
-    const COIN_SKINS = ['USDT','BTC','TON'];
-    function spawnCoin(){
-      const r=16, top=GROUND_Y - 80 - Math.random()*110;
-      const skin=COIN_SKINS[Math.floor(Math.random()*COIN_SKINS.length)];
-      objects.coins.push({ kind:'coin', x:canvas.width+rand(0,120), y:top, w:r*2, h:r*2, r,
-        skin, spin:rand(0,1000), shimmer:rand(0,1000) });
-    }
-    function coinPalette(s){
-      switch(s){
-        case 'USDT': return { inner:'#22ffcc', outer:'#008f73', logo:'#ffffff' };
-        case 'BTC':  return { inner:'#ffb347', outer:'#d78100', logo:'#1a1a1a' };
-        case 'TON':  return { inner:'#53b6ff', outer:'#0b6ed1', logo:'#ffffff' };
-        default:     return { inner:'#ffd94d', outer:'#b88400', logo:'#ffffff' };
-      }
-    }
-    function drawCoinLogo(s){
-      switch(s){
-        case 'USDT':
-          ctx.fillRect(-12,-2,24,4); ctx.fillRect(-3,-2,6,16); ctx.clearRect(-9,6,18,4); break;
-        case 'BTC':
-          ctx.fillRect(-3,-12,6,24); ctx.beginPath(); ctx.arc(0,-6,8,Math.PI*0.9,Math.PI*0.1,false);
-          ctx.arc(0,6,8,Math.PI*0.9,Math.PI*0.1,false); ctx.fill(); break;
-        case 'TON':
-          ctx.beginPath(); ctx.moveTo(0,-10); ctx.lineTo(10,0); ctx.lineTo(0,12); ctx.lineTo(-10,0); ctx.closePath();
-          ctx.strokeStyle=ctx.fillStyle; ctx.stroke(); break;
-      }
-    }
-    function drawCoin(c){
-      const {x,y,r,skin}=c, pal=coinPalette(skin);
-      const squash=0.12*Math.sin((WORLD.t+c.spin)*0.01);
-      ctx.save(); ctx.translate(x+r,y+r); ctx.scale(1+squash,1-squash);
-      ctx.rotate(((WORLD.t+c.spin)*0.006)%(Math.PI*2));
-      const g=ctx.createRadialGradient(0,0,r*0.25,0,0,r); g.addColorStop(0,pal.inner); g.addColorStop(1,pal.outer);
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(0,0,r-1.5,0,Math.PI*2); ctx.stroke();
-      ctx.save(); ctx.rotate(Math.PI*0.25);
-      ctx.globalAlpha=0.25+0.35*((Math.sin((WORLD.t+c.shimmer)*0.008)+1)/2);
-      const grd=ctx.createLinearGradient(-r,-r,r,r);
-      grd.addColorStop(0,'rgba(255,255,255,0)'); grd.addColorStop(0.5,'rgba(255,255,255,0.8)'); grd.addColorStop(1,'rgba(255,255,255,0)');
-      ctx.fillStyle=grd; ctx.fillRect(-r,-r,r*2,r*2); ctx.restore();
-      ctx.fillStyle=pal.logo; ctx.strokeStyle=pal.logo; drawCoinLogo(skin);
+
+    function drawBasket() {
+      ctx.save();
+      ctx.translate(basket.x, basket.y);
+      ctx.fillStyle = '#0b192d';
+      ctx.fillRect(-basket.w / 2, 0, basket.w, basket.h);
+      ctx.fillStyle = '#22ffcc';
+      ctx.fillRect(-basket.w / 2, -6, basket.w, 10);
+      ctx.fillStyle = '#0f4138';
+      ctx.fillRect(-basket.w / 2 + 6, 8, basket.w - 12, basket.h - 12);
       ctx.restore();
     }
-    function spawnEnemy(){
-      const w=44,h=32;
-      objects.enemies.push({ kind:'enemy', x:canvas.width+rand(0,120), y:GROUND_Y, w,h });
-    }
-    function jump(){ if(alive && player.onGround){ player.vy=JUMP_VELOCITY; player.onGround=false; } }
-    document.addEventListener('keydown',e=>{
-      if (e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); jump(); }
-      if (e.code==='KeyR') reset();
-      if (e.code==='KeyP') paused=!paused;
-      if (e.code==='KeyK') catColorIndex=(catColorIndex+1)%CAT_COLORS.length;
-    });
-    canvas.addEventListener('pointerdown', jump);
 
-    let last = performance.now();
-    function loop(now){
-      const dt=now-last; last=now;
-      if(!paused && alive){
-        WORLD.t+=dt; WORLD.speed+=SPEEDUP*dt;
-        if(now-lastSpawn.coin>SPAWN_COOLDOWN.coin){spawnCoin(); lastSpawn.coin=now;}
-        if(now-lastSpawn.enemy>SPAWN_COOLDOWN.enemy){spawnEnemy(); lastSpawn.enemy=now;}
-        player.vy+=GRAVITY; player.y+=player.vy;
-        if(player.y>=GROUND_Y){player.y=GROUND_Y; player.vy=0; player.onGround=true;}
-        for(let i=objects.coins.length-1;i>=0;i--){
-          const c=objects.coins[i]; c.x-=WORLD.speed;
-          if(aabb(c,player)){ coins++; objects.coins.splice(i,1); }
-          else if(c.x+c.w<-10) objects.coins.splice(i,1);
+    function spawnCoin(now) {
+      const size = 26;
+      const x = Math.random() * (canvas.width / dpr - size * 2) + size;
+      const speed = 140 + Math.random() * 120;
+      coins.push({ x, y: -20, r: size / 2, vy: speed, rot: Math.random() * Math.PI * 2, spin: 0.015 + Math.random() * 0.012 });
+      lastSpawn = now;
+    }
+
+    function drawCoin(c) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.rot);
+      const r = c.r;
+      const inset = r * 0.24;
+      const grd = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.2, 0, 0, r);
+      grd.addColorStop(0, '#5affd4');
+      grd.addColorStop(1, '#0b8c74');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.save();
+      ctx.scale(0.9, 0.9);
+      ctx.fillRect(-r * 0.6, -inset * 0.4, r * 1.2, inset * 0.8);
+      ctx.fillRect(-inset * 0.5, -inset * 0.4, inset, r * 1.1);
+      ctx.clearRect(-inset * 1.3, inset * 0.2, inset * 2.6, inset * 0.6);
+      ctx.restore();
+      ctx.restore();
+    }
+
+    function drawHUD() {
+      document.getElementById('score').textContent = `Монеты: ${state.score}`;
+      document.getElementById('streak').textContent = `Серия: ${state.streak}x`;
+      document.getElementById('status').textContent = state.promoUnlocked
+        ? 'Промокод открыт!'
+        : state.playing
+          ? 'Лови монеты'
+          : 'Пауза';
+    }
+
+    function update(dt, now) {
+      const canvasWidth = canvas.width / dpr;
+
+      // управление
+      basket.vx = 0;
+      if (keys.has('ArrowLeft') || keys.has('KeyA')) basket.vx -= basket.speed;
+      if (keys.has('ArrowRight') || keys.has('KeyD')) basket.vx += basket.speed;
+      basket.x += basket.vx * dt;
+      basket.x = Math.max(basket.w / 2 + 6, Math.min(canvasWidth - basket.w / 2 - 6, basket.x));
+
+      if (now - lastSpawn > spawnEvery && state.playing && !state.promoUnlocked) spawnCoin(now);
+
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const c = coins[i];
+        c.y += c.vy * dt;
+        c.rot += c.spin * Math.PI * 2;
+        if (c.y > groundY + 18) {
+          coins.splice(i, 1);
+          state.streak = 0;
+          continue;
         }
-        for(let i=objects.enemies.length-1;i>=0;i--){
-          const e=objects.enemies[i]; e.x-=WORLD.speed*1.05;
-          if(aabb(e,player)){ alive=false; }
-          else if(e.x+e.w<-10) objects.enemies.splice(i,1);
+        const withinX = Math.abs(c.x - basket.x) < basket.w * 0.55;
+        const withinY = c.y + c.r > basket.y && c.y - c.r < basket.y + basket.h;
+        if (withinX && withinY) {
+          coins.splice(i, 1);
+          state.score += 1;
+          state.streak += 1;
+          if (state.score >= state.target) unlockPromo();
         }
       }
-      ctx.clearRect(0,0,canvas.width,canvas.height);
+    }
+
+    function render() {
       drawBackground();
-      objects.coins.forEach(drawCoin);
-      objects.enemies.forEach(drawEnemy);
-      drawPicoCat();
-      ctx.fillStyle='#e7f3ff'; ctx.font='20px system-ui, sans-serif';
-      ctx.fillText(`Монеты: ${coins}`, 20, 36);
-      if(!alive){
-        ctx.fillStyle='#ffb3c0'; ctx.font='28px system-ui, sans-serif';
-        ctx.fillText('Игра окончена — R для рестарта', canvas.width/2-180, canvas.height/2);
-      }
+      coins.forEach(drawCoin);
+      drawBasket();
+      drawHUD();
+    }
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.033);
+      lastTime = now;
+      if (state.playing) update(dt, now);
+      render();
       requestAnimationFrame(loop);
     }
-    reset(); requestAnimationFrame(t=>{ last=t; loop(t); });
+    requestAnimationFrame(loop);
 
-    // Buttons: save / best
-    document.getElementById('save').onclick = async () => {
-      if (!currentUser) return alert('Нет данных пользователя Telegram');
-      const res = await fetch('/api/score', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: currentUser.id, score: coins })
-      });
-      const j = await res.json();
-      alert('Сохранено. Лучший: ' + j.best);
-    };
-    document.getElementById('best').onclick = async () => {
-      if (!currentUser) return alert('Нет данных пользователя Telegram');
-      const res = await fetch('/api/score/' + currentUser.id);
-      const j = await res.json();
-      alert('Лучший счёт: ' + j.best);
-    };
+    function unlockPromo() {
+      state.promoUnlocked = true;
+      document.getElementById('promo').classList.add('visible');
+      document.getElementById('status').textContent = 'Промокод открыт!';
+    }
+
+    function resetGame() {
+      state.score = 0;
+      state.streak = 0;
+      state.promoUnlocked = false;
+      coins.splice(0, coins.length);
+      lastSpawn = 0;
+      document.getElementById('promo').classList.remove('visible');
+      drawHUD();
+    }
+
+    // управление с клавиатуры и мыши/тач
+    window.addEventListener('keydown', (e) => { keys.add(e.code); if (['ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); });
+    window.addEventListener('keyup', (e) => keys.delete(e.code));
+    canvas.addEventListener('pointermove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      basket.x = (e.clientX - rect.left);
+    });
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      basket.x = (e.clientX - rect.left);
+    });
+
+    document.getElementById('left').addEventListener('pointerdown', () => keys.add('ArrowLeft'));
+    document.getElementById('right').addEventListener('pointerdown', () => keys.add('ArrowRight'));
+    document.getElementById('left').addEventListener('pointerup', () => keys.delete('ArrowLeft'));
+    document.getElementById('right').addEventListener('pointerup', () => keys.delete('ArrowRight'));
+    document.getElementById('restart').addEventListener('click', resetGame);
+    document.getElementById('tap').addEventListener('click', () => state.playing = true);
+
+    document.getElementById('copy').addEventListener('click', async () => {
+      const code = document.getElementById('promoCode').textContent.trim();
+      try {
+        await navigator.clipboard.writeText(code);
+        document.getElementById('status').textContent = 'Промокод скопирован';
+      } catch (err) {
+        alert('Скопируй вручную: ' + code);
+      }
+    });
   </script>
 </body>
 </html>
